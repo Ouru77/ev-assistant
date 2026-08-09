@@ -29,3 +29,6 @@ Thumbs.db
 .claude/
 .vscode/
 .idea/
+
+# Yerel geliştirme notu (public repoda olmasın)
+CLAUDE.md
