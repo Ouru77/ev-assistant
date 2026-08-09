@@ -18,14 +18,14 @@ def _get_model():
     global _model
     if _model is None:
         from faster_whisper import WhisperModel
-        print(f"[E.V.] Whisper modeli yükleniyor: {_cfg['model']} (ilk seferde iner)...", flush=True)
+        print(f"[E.V.] Loading Whisper model: {_cfg['model']} (downloads on first run)...", flush=True)
         _model = WhisperModel(
             _cfg["model"],
             device="cpu",
             compute_type="int8",
             download_root=_cfg["dir"],
         )
-        print("[E.V.] Whisper hazır.", flush=True)
+        print("[E.V.] Whisper ready.", flush=True)
     return _model
 
 

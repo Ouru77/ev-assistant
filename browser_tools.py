@@ -75,7 +75,7 @@ async def search_and_read(query: str) -> dict:
             """)
             return {"title": title, "url": url, "content": text[:3000]}
         else:
-            return {"title": "Sonuç yok", "url": search_url, "content": "Hiç sonuç bulunamadı."}
+            return {"title": "No results", "url": search_url, "content": "No results found."}
     except Exception as e:
         return {"error": str(e), "url": query}
     finally:
@@ -119,9 +119,9 @@ async def fetch_news() -> str:
         text = await page.evaluate("() => document.body.innerText")
         # Extract the news sections
         content = text[:4000]
-        return f"World Monitor haberleri:\n{content}"
+        return f"World Monitor news:\n{content}"
     except Exception as e:
-        return f"Haberler yüklenemedi: {e}"
+        return f"Couldn't load the news: {e}"
     finally:
         pass  # Keep page open so user can see it
 
@@ -136,7 +136,7 @@ async def youtube_open(query: str) -> dict:
     from urllib.parse import quote
     q = (query or "").strip()
     if not q:
-        return {"error": "boş sorgu"}
+        return {"error": "empty query"}
     search_url = f"https://www.youtube.com/results?search_query={quote(q)}"
     try:
         async with httpx.AsyncClient(timeout=10, headers={

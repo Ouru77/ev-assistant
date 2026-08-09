@@ -1,9 +1,6 @@
-# === GİZLİ — asla commit etme ===
+# === Secrets / personal — never commit ===
 config.json
 memory.json
-
-# Çalışma zamanı çıktıları
-*.err
 
 # Python
 .venv/
@@ -14,10 +11,11 @@ __pycache__/
 # Node / Electron
 node_modules/
 
-# Loglar & çalışma zamanı
+# Logs & runtime output
 *.log
+*.err
 
-# Üretilen/geçici ses dosyaları
+# Generated / temporary audio
 *.mp3
 *.wav
 
@@ -25,10 +23,8 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Yerel araç/editör ayarları
+# Local tooling / editor
 .claude/
 .vscode/
 .idea/
-
-# Yerel geliştirme notu (public repoda olmasın)
 CLAUDE.md

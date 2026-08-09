@@ -17,19 +17,20 @@ let currentEvDiv = null;  // streamed E.V. line being appended to
 const _langOverride = new URLSearchParams(location.search).get('lang');
 let appLang = _langOverride === 'en' ? 'en' : 'tr';  // set from /stats; drives TTS + UI
 
-// Static UI labels translated when appLang === 'en' (tr = as authored in HTML).
+// Static UI labels. HTML is authored in English; this overlay applies when
+// appLang === 'tr' (English needs no dict since it's the default).
 const I18N = {
-    en: {
-        sys: '// SYSTEM', modules: '// MODULES', workshop: '// WORKSHOP', log: '// EVENT LOG',
-        mem: 'MEMORY', wind: 'WIND', core: 'CORE', voice: 'VOICE', send: 'SEND',
-        start: 'Press Ctrl+Space to start', ph: 'Message E.V.…',
+    tr: {
+        sys: '// SİSTEM', modules: '// MODÜLLER', workshop: '// ATÖLYE', log: '// OLAY GÜNLÜĞÜ',
+        mem: 'BELLEK', wind: 'RÜZGÂR', core: 'ÇEKİRDEK', voice: 'SES', send: 'GÖNDER',
+        start: 'Başlamak için Ctrl+Space', ph: "E.V.'ye yaz…",
     },
 };
 let i18nApplied = false;
 function applyI18n() {
     document.documentElement.lang = appLang;
     const d = I18N[appLang];
-    if (!d) return;  // Turkish: leave the HTML as written
+    if (!d) return;  // English: leave the HTML as authored
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const k = el.getAttribute('data-i18n'); if (d[k]) el.textContent = d[k];
     });
@@ -38,12 +39,26 @@ function applyI18n() {
     });
 }
 
-// Dynamic status strings (change with state).
+// Dynamic status / log strings (change with state).
 const STR = {
-    tr: { start: 'Başlamak için tıkla / Ctrl+Space', muted: 'Sessiz — Ctrl+Space ile aç',
-          listening: 'Dinliyorum…', idleMuted: 'Sessize alındı (boşta) — Ctrl+Space ile aç' },
-    en: { start: 'Click / Ctrl+Space to start', muted: 'Muted — press Ctrl+Space',
-          listening: 'Listening…', idleMuted: 'Muted (idle) — press Ctrl+Space' },
+    tr: {
+        start: 'Başlamak için tıkla / Ctrl+Space', muted: 'Sessiz · Ctrl+Space ile aç',
+        listening: 'Dinliyorum…', idleMuted: 'Boşta sessize alındı · Ctrl+Space ile aç',
+        thinking: 'E.V. düşünüyor…', timeout: 'Yanıt gecikti, tekrar dene.',
+        disconnected: 'Bağlantı koptu…', micPerm: 'Mikrofon izni gerekli. Adres çubuğundan izin ver.',
+        micPrep: 'Mikrofon hazırlanıyor…', idleLog: 'Konuşma modu boşta kaldı, sessize alındı.',
+        fsIn: 'Tam ekran algılandı, E.V. tepsiye çekildi.', fsOut: 'Tam ekran bitti, E.V. geri döndü.',
+        yes: 'Evet', no: 'Hayır', egglog: 'atölye günlüğü', started: 'E.V. çekirdeği başlatıldı.',
+    },
+    en: {
+        start: 'Click / Ctrl+Space to start', muted: 'Muted · press Ctrl+Space',
+        listening: 'Listening…', idleMuted: 'Muted while idle · press Ctrl+Space',
+        thinking: 'E.V. is thinking…', timeout: 'Response is late, try again.',
+        disconnected: 'Connection lost…', micPerm: 'Microphone permission needed. Allow it from the address bar.',
+        micPrep: 'Preparing the microphone…', idleLog: 'Conversation mode went idle, muted.',
+        fsIn: 'Fullscreen detected, E.V. dropped to the tray.', fsOut: 'Fullscreen ended, E.V. is back.',
+        yes: 'Yes', no: 'No', egglog: 'workshop log', started: 'E.V. core initialized.',
+    },
 };
 const T = (k) => (STR[appLang] || STR.tr)[k] || '';
 
@@ -54,7 +69,7 @@ function setAwaiting(v) {
     if (v) {
         watchdog = setTimeout(() => {
             awaitingResponse = false;
-            status.textContent = 'Yanıt gecikti — tekrar dene.';
+            status.textContent = T('timeout');
             resumeListening();
         }, 60000);
     }
@@ -105,7 +120,7 @@ async function initMic() {
     try {
         micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (e) {
-        status.textContent = 'Mikrofon izni gerekli. Adres çubuğundan izin ver.';
+        status.textContent = T('micPerm');
         return;
     }
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -154,7 +169,7 @@ function vadTick() {
             listeningEnabled = false;
             setOrbState('muted');
             status.textContent = T('idleMuted');
-            logSys('Konuşma modu boşta kaldı, sessize alındı.');
+            logSys(T('idleLog'));
             return;
         }
         if (vol > START_THRESHOLD) {
@@ -183,7 +198,7 @@ function onRecordingStopped() {
         return; // too short / probably noise
     }
     setOrbState('thinking');
-    status.textContent = 'E.V. dinliyor...';
+    status.textContent = T('thinking');
     setAwaiting(true);
     markActivity();
     const reader = new FileReader();
@@ -253,7 +268,7 @@ function connect() {
         }
     };
     ws.onclose = () => {
-        status.textContent = 'Bağlantı koptu...';
+        status.textContent = T('disconnected');
         setTimeout(connect, 3000);
     };
 }
@@ -267,11 +282,11 @@ function handleFullscreen(active) {
         if (listeningEnabled) { listeningEnabled = false; setOrbState('muted'); }
         window.electronAPI.hide();
         hiddenByFullscreen = true;
-        logSys('Tam ekran algılandı — E.V. tepsiye çekildi.');
+        logSys(T('fsIn'));
     } else if (hiddenByFullscreen) {
         window.electronAPI.show();
         hiddenByFullscreen = false;
-        logSys('Tam ekran bitti — E.V. geri döndü.');
+        logSys(T('fsOut'));
     }
 }
 
@@ -322,7 +337,7 @@ function pickVoice() {
 if ('speechSynthesis' in window) {
     window.speechSynthesis.addEventListener('voiceschanged', () => {
         const tr = (window.speechSynthesis.getVoices() || []).filter(v => v.lang && v.lang.toLowerCase().startsWith('tr'));
-        if (tr.length) console.log('[E.V.] Türkçe sesler:', tr.map(v => v.name).join(' | '));
+        if (tr.length) console.log('[E.V.] Turkish voices:', tr.map(v => v.name).join(' | '));
     });
 }
 function speakBrowser(text) {
@@ -349,7 +364,7 @@ vizCanvas.addEventListener('click', () => { toggleListen(); });
 
 async function toggleListen() {
     await unlockAndInit();
-    if (!analyser) { status.textContent = 'Mikrofon hazırlanıyor…'; return; }
+    if (!analyser) { status.textContent = T('micPrep'); return; }
     listeningEnabled = !listeningEnabled;
     if (listeningEnabled) {
         markActivity();
@@ -401,7 +416,7 @@ async function pollStats() {
         setBar('cpu', s.cpu); setBar('ram', s.ram); setBar('disk', s.disk);
         setText('s-ram', s.ram_used_gb + '/' + s.ram_total_gb + ' GB');
         setText('s-disk', s.disk_free_gb + ' GB');
-        setText('w-city', s.city || 'İzmir');
+        setText('w-city', s.city || '');
         const dl = document.getElementById('lbl-disk');
         if (dl) dl.textContent = (appLang === 'en' ? 'FREE (' : 'BOŞ (') + (s.disk_drive || '—') + ')';
         if (s.modules) {
@@ -429,7 +444,7 @@ function sendText() {
     input.value = '';
     addTranscript('user', txt);
     setOrbState('thinking');
-    status.textContent = 'E.V. düşünüyor…';
+    status.textContent = T('thinking');
     setAwaiting(true);
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ text: txt }));
 }
@@ -479,9 +494,9 @@ function addConfirm(text) {
     div.className = 'ev confirm';
     div.textContent = text + '  ';
     const yes = document.createElement('button');
-    yes.className = 'confirm-btn yes'; yes.textContent = 'Evet';
+    yes.className = 'confirm-btn yes'; yes.textContent = T('yes');
     const no = document.createElement('button');
-    no.className = 'confirm-btn no'; no.textContent = 'Hayır';
+    no.className = 'confirm-btn no'; no.textContent = T('no');
     const done = (v) => { yes.disabled = no.disabled = true; sendConfirm(v); };
     yes.addEventListener('click', () => done(true));
     no.addEventListener('click', () => done(false));
@@ -578,7 +593,7 @@ drawViz();
 (function () {
     const el = document.getElementById('code-line');
     if (!el) return;
-    const bits = ['0x1A3F', 'EV.core.tick()', 'stt=whisper.ok', 'gemma2:9b>gpu', 'tts=bella.ready', 'vram=100%', 'ws://8340', 'audio.sync', 'İzmir.env.load', 'core.stable'];
+    const bits = ['0x1A3F', 'EV.core.tick()', 'stt=whisper.ok', 'gemma2:9b>gpu', 'tts=voice.ready', 'vram=100%', 'ws://8340', 'audio.sync', 'env.load', 'core.stable'];
     let s = '';
     for (let i = 0; i < 24; i++) s += bits[Math.floor(Math.random() * bits.length)] + '   ';
     el.textContent = s + s; // doubled for seamless scroll
@@ -656,13 +671,22 @@ setTimeout(() => { maybeThink(); setInterval(maybeThink, 45000); }, 12000);
 (function () {
     const el = document.querySelector('.core-name');
     if (!el) return;
-    const EGGS = [
-        "'çatıdan şehir güzel görünüyor.'", "'lehim kokusu... ev gibi.'",
-        "'bir tasarım daha, bir gece daha.'", "'sessizlik, en sevdiğim frekans.'",
-        "'not defterinin üçüncü sayfası hâlâ boş. yakında.'",
-        "'bazı kahramanların pelerini yoktur; benim ekranım var.'",
-        "'devriye sakin. iyi.'",
-    ];
+    const EGGS = {
+        tr: [
+            "'çatıdan şehir güzel görünüyor.'", "'lehim kokusu... ev gibi.'",
+            "'bir tasarım daha, bir gece daha.'", "'sessizlik, en sevdiğim frekans.'",
+            "'not defterinin üçüncü sayfası hâlâ boş. yakında.'",
+            "'bazı kahramanların pelerini yoktur; benim ekranım var.'",
+            "'devriye sakin. iyi.'",
+        ],
+        en: [
+            "'the city looks good from the rooftop.'", "'smell of solder... feels like home.'",
+            "'one more design, one more night.'", "'silence, my favorite frequency.'",
+            "'page three of the notebook is still blank. soon.'",
+            "'some heroes don't have capes; I have a screen.'",
+            "'patrol is quiet. good.'",
+        ],
+    };
     let n = 0, t = 0, egg = 0;
     el.addEventListener('click', () => {
         const now = Date.now();
@@ -670,12 +694,13 @@ setTimeout(() => { maybeThink(); setInterval(maybeThink, 45000); }, 12000);
         t = now;
         if (n >= 3) {
             n = 0; egg++;
+            const pool = EGGS[appLang] || EGGS.tr;
             const num = String(egg).padStart(3, '0');
-            logSys(`E.V. ›› atölye günlüğü #${num} — ${EGGS[(egg - 1) % EGGS.length]}`);
+            logSys(`E.V. ›› ${T('egglog')} #${num}: ${pool[(egg - 1) % pool.length]}`);
         }
     });
 })();
 
 applyI18n();  // apply immediately for ?lang override; pollStats re-applies for server config
-logSys(appLang === 'en' ? 'E.V. core initialized.' : 'E.V. çekirdeği başlatıldı.');
+logSys(T('started'));
 connect();

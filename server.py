@@ -38,7 +38,7 @@ ELEVENLABS_API_KEY = config.get("elevenlabs_api_key", "")
 ELEVENLABS_VOICE_ID = config.get("elevenlabs_voice_id", "rDmv3mOhK6TnhYWckFaD")
 USER_NAME = config.get("user_name", "dostum")
 USER_ADDRESS = config.get("user_address", "dostum")
-CITY = config.get("city", "İstanbul")
+CITY = config.get("city", "London")
 LANGUAGE = config.get("language", "tr").lower()
 TASKS_FILE = config.get("obsidian_inbox_path", "")
 PC_CONTROL = bool(config.get("pc_control", True))
@@ -63,7 +63,7 @@ def save_memories(facts: list):
         with open(MEMORY_PATH, "w", encoding="utf-8") as f:
             json.dump({"facts": facts}, f, ensure_ascii=False, indent=2)
     except Exception as e:
-        print(f"[E.V.] Hafıza yazılamadı: {e}", flush=True)
+        print(f"[E.V.] Failed to write memory: {e}", flush=True)
 
 
 def add_memory(fact: str) -> str:
@@ -99,7 +99,7 @@ if ANTHROPIC_API_KEY and "YAPISTIR" not in ANTHROPIC_API_KEY:
     try:
         ai = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     except Exception as e:
-        print(f"[E.V.] Anthropic istemcisi kurulamadı: {e}", flush=True)
+        print(f"[E.V.] Anthropic client init failed: {e}", flush=True)
 
 # Longer timeout — a local Ollama model on CPU can be slow to respond.
 http = httpx.AsyncClient(timeout=180)
@@ -124,7 +124,7 @@ async def llm_chat(system: str, messages: list, max_tokens: int = 400) -> str:
                 return resp.json()["message"]["content"]
             except Exception as e:
                 last_err = e
-                print(f"[E.V.] llm_chat ctx={ctx} hatası, düşülüyor: {str(e)[:100]}", flush=True)
+                print(f"[E.V.] llm_chat ctx={ctx} failed, falling back: {str(e)[:100]}", flush=True)
         raise last_err
 
     # Default: Anthropic
@@ -174,7 +174,7 @@ async def llm_stream(system: str, messages: list, max_tokens: int = 400):
             return
         except Exception as e:
             last_err = e
-            print(f"[E.V.] llm_stream ctx={ctx} hatası, düşülüyor: {str(e)[:100]}", flush=True)
+            print(f"[E.V.] llm_stream ctx={ctx} failed, falling back: {str(e)[:100]}", flush=True)
             if yielded:
                 raise  # already streamed part of the reply — don't restart it
     if last_err:
@@ -265,8 +265,8 @@ def refresh_data():
     global WEATHER_INFO, TASKS_INFO
     WEATHER_INFO = get_weather_sync()
     TASKS_INFO = get_tasks_sync()
-    print(f"[E.V.] Hava: {WEATHER_INFO}", flush=True)
-    print(f"[E.V.] Görevler: {len(TASKS_INFO)} yüklendi", flush=True)
+    print(f"[E.V.] Weather: {WEATHER_INFO}", flush=True)
+    print(f"[E.V.] Tasks: {len(TASKS_INFO)} loaded", flush=True)
 
 WEATHER_INFO = ""
 TASKS_INFO = []
@@ -377,22 +377,22 @@ async def execute_action(action: dict) -> str:
     if t == "SEARCH":
         result = await browser_tools.search_and_read(p)
         if "error" not in result:
-            return f"Sayfa: {result.get('title', '')}\nURL: {result.get('url', '')}\n\n{result.get('content', '')[:2000]}"
-        return f"Arama başarısız: {result.get('error', '')}"
+            return f"Page: {result.get('title', '')}\nURL: {result.get('url', '')}\n\n{result.get('content', '')[:2000]}"
+        return f"__FAILED__Search failed: {result.get('error', '')}"
 
     elif t == "BROWSE":
         result = await browser_tools.visit(p)
         if "error" not in result:
-            return f"Sayfa: {result.get('title', '')}\n\n{result.get('content', '')[:2000]}"
-        return f"Sayfaya ulaşılamadı: {result.get('error', '')}"
+            return f"Page: {result.get('title', '')}\n\n{result.get('content', '')[:2000]}"
+        return f"__FAILED__Couldn't reach the page: {result.get('error', '')}"
 
     elif t == "OPEN":
         await browser_tools.open_url(p)
-        return f"Açıldı: {p}"
+        return f"Opened: {p}"
 
     elif t == "SCREEN":
         if ai is not None:
-            return await screen_capture.describe_screen(ai)
+            return await screen_capture.describe_screen(ai, LANGUAGE)
         return S("no_screen")
 
     elif t == "NEWS":
@@ -466,9 +466,9 @@ async def _warm_ollama():
             "messages": [{"role": "user", "content": "merhaba"}],
             "options": {"num_predict": 1, "num_ctx": NUM_CTX},  # match real requests → no reload
         }, timeout=180)
-        print("[E.V.] Model ısıtıldı (VRAM).", flush=True)
+        print("[E.V.] Model warmed (VRAM).", flush=True)
     except Exception as e:
-        print(f"[E.V.] Isıtma hatası: {e}", flush=True)
+        print(f"[E.V.] Warm-up error: {e}", flush=True)
 
 
 async def _fullscreen_watch():
@@ -488,7 +488,7 @@ async def _fullscreen_watch():
                 for ws in dead:
                     clients.discard(ws)
         except Exception as e:
-            print(f"[E.V.] Tam ekran izleme hatası: {e}", flush=True)
+            print(f"[E.V.] Fullscreen watch error: {e}", flush=True)
         await asyncio.sleep(1.5)
 
 
@@ -619,7 +619,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
                         await speak_chunk(seg, ws)
                     buf = segs[-1]
         except Exception as e:
-            print(f"  Stream hatası: {e}", flush=True)
+            print(f"  Stream error: {e}", flush=True)
         if not stop_speaking:
             await speak_chunk(buf, ws)
         spoken_text, action = extract_action(full)
@@ -676,7 +676,7 @@ async def deliver_action(session_id: str, action: dict, ws: WebSocket):
     # __SPOKEN__ prefix → speak the line verbatim, don't summarize (PC/memory acks).
     if isinstance(action_result, str) and action_result.startswith("__SPOKEN__"):
         summary = action_result[len("__SPOKEN__"):].strip()
-    elif "başarısız" not in action_result and "ulaşılamadı" not in action_result:
+    elif not action_result.startswith("__FAILED__"):
         if LANGUAGE == "en":
             sys_sum = (f"You are E.V. Summarize the info below briefly in English, at most 3 "
                        f"sentences, calm and plain E.V. style. Address the user by name as "
@@ -706,7 +706,7 @@ async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     session_id = str(id(ws))
     clients.add(ws)
-    print(f"[E.V.] İstemci bağlandı", flush=True)
+    print(f"[E.V.] Client connected", flush=True)
 
     try:
         while True:
@@ -719,7 +719,7 @@ async def websocket_endpoint(ws: WebSocket):
                     if data.get("confirm") and pending:
                         await deliver_action(session_id, pending, ws)
                     else:
-                        cancel = f"Tamam {USER_ADDRESS}, vazgeçtim."
+                        cancel = S("canceled")
                         caudio = await synthesize_speech(cancel)
                         await ws.send_json({
                             "type": "response", "text": cancel,
@@ -756,7 +756,7 @@ async def websocket_endpoint(ws: WebSocket):
                 raise
             except Exception as e:
                 # LLM/TTS/tool error — stay connected, tell the user gracefully.
-                print(f"  İşlem hatası: {type(e).__name__}: {e}", flush=True)
+                print(f"  Processing error: {type(e).__name__}: {e}", flush=True)
                 try:
                     await ws.send_json({
                         "type": "response",

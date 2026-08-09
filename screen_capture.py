@@ -16,10 +16,17 @@ def capture_screen() -> bytes:
     return buf.getvalue()
 
 
-async def describe_screen(anthropic_client) -> str:
+async def describe_screen(anthropic_client, lang: str = "en") -> str:
     """Capture screen and describe it using Claude Vision."""
     png_bytes = capture_screen()
     b64 = base64.b64encode(png_bytes).decode("utf-8")
+    prompt = (
+        "Bu ekranda görünenleri Türkçe olarak kısaca anlat. En fazla 2-3 cümle. "
+        "Açık olan en önemli programları ve içerikleri belirt."
+        if lang == "tr" else
+        "Briefly describe what's on this screen in English. At most 2-3 sentences. "
+        "Mention the most important open programs and content."
+    )
 
     response = await anthropic_client.messages.create(
         model="claude-haiku-4-5-20251001",
@@ -37,7 +44,7 @@ async def describe_screen(anthropic_client) -> str:
                 },
                 {
                     "type": "text",
-                    "text": "Bu ekranda görünenleri Türkçe olarak kısaca anlat. En fazla 2-3 cümle. Açık olan en önemli programları ve içerikleri belirt.",
+                    "text": prompt,
                 },
             ],
         }],

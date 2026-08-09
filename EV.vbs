@@ -1,24 +1,24 @@
-' E.V. sessiz başlatıcı — çift tıkla, konsol penceresi göstermeden aç.
+' E.V. silent launcher — double-click to start with no console window.
 Option Explicit
 Dim sh, fso, proj, ollama, electron
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
-' Betiğin bulunduğu klasör = proje kökü (herkeste taşınabilir çalışır).
+' The script's own folder is the project root (portable across machines).
 proj = fso.GetParentFolderName(WScript.ScriptFullName)
 ollama = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Programs\Ollama\ollama.exe"
 electron = proj & "\node_modules\electron\dist\electron.exe"
 
 sh.CurrentDirectory = proj
 
-' Ollama'yı sessizce başlat (zaten çalışıyorsa zararsız).
+' Start Ollama quietly (harmless if it's already running).
 If fso.FileExists(ollama) Then
     sh.Run """" & ollama & """ serve", 0, False
 End If
 
-' E.V. uygulamasını başlat (konsol yok).
+' Launch the E.V. app (no console).
 If fso.FileExists(electron) Then
     sh.Run """" & electron & """ .", 0, False
 Else
-    MsgBox "E.V. bulunamadı. Kurulum eksik olabilir.", 48, "E.V."
+    MsgBox "E.V. not found. Setup may be incomplete.", 48, "E.V."
 End If

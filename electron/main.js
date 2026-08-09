@@ -85,16 +85,16 @@ app.whenReady().then(async () => {
   try {
     tray = new Tray(path.join(__dirname, 'icon.png'));
     const menu = Menu.buildFromTemplate([
-      { label: 'Dinle Aç/Kapat (Ctrl+Space)', click: () => win && win.webContents.send('toggle-listen') },
-      { label: 'Göster / Gizle', click: () => { if (!win) return; win.isVisible() ? win.hide() : win.show(); } },
+      { label: 'Toggle listening (Ctrl+Space)', click: () => win && win.webContents.send('toggle-listen') },
+      { label: 'Show / Hide', click: () => { if (!win) return; win.isVisible() ? win.hide() : win.show(); } },
       { type: 'separator' },
-      { label: 'Çıkış', click: () => app.quit() },
+      { label: 'Quit', click: () => app.quit() },
     ]);
     tray.setToolTip('E.V.');
     tray.setContextMenu(menu);
     tray.on('click', () => { if (win) { win.isVisible() ? win.hide() : win.show(); } });
   } catch (e) {
-    console.log('Tray kurulamadı:', e.message);
+    console.log('Tray setup failed:', e.message);
   }
 });
 

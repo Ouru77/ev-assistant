@@ -1,5 +1,5 @@
 {
-  "_not": "config.json olarak kopyala ve doldur. Varsayılanlar tamamen ücretsiz/yerel (Ollama + Whisper + tarayıcı sesi) — hiç API anahtarı gerekmez. Daha iyi ses için ElevenLabs anahtarı girip tts_provider'ı 'elevenlabs' yap.",
+  "_readme": "Copy this to config.json and fill it in. Defaults are fully free/local (Ollama + Whisper + browser voice) and need no API keys. For nicer speech, add an ElevenLabs key and set tts_provider to 'elevenlabs'.",
 
   "llm_provider": "ollama",
   "ollama_model": "gemma2:9b",
@@ -15,23 +15,20 @@
 
   "anthropic_api_key": "",
 
-  "_lang": "language: 'tr' (Türkçe) veya 'en' (English). E.V.'nin dinlediği, düşündüğü ve konuştuğu dil. / the language E.V. listens, thinks and speaks in.",
-  "language": "tr",
+  "_language": "'en' (English) or 'tr' (Turkish) — the language E.V. listens, thinks and speaks in.",
+  "language": "en",
 
-  "user_name": "ADIN",
-  "user_address": "ADIN",
-  "city": "İstanbul",
+  "user_name": "YOUR NAME",
+  "user_address": "YOUR NAME",
+  "city": "London",
 
   "pc_control": true,
   "conversation_mode": true,
 
-  "_memory": "history_turns: kaç son mesaj bağlamda tutulur (uzun sohbet/RP için artır). num_ctx: Ollama bağlam penceresi (token). Büyütmek daha çok VRAM ister; VRAM boşsa 8192'ye çıkarabilirsin, oyun/başka yük varken E.V. otomatik daha küçük bağlama düşer.",
+  "_memory": "history_turns: how many recent messages stay in context (raise for long chats / RP). num_ctx: Ollama context window in tokens. Larger needs more VRAM; if VRAM is free you can raise it to 8192, and E.V. auto-falls-back to a smaller window when the GPU is busy (e.g. a game is running).",
   "history_turns": 30,
   "num_ctx": 4096,
 
-  "workspace_path": "",
   "browser_url": "https://www.google.com",
-  "spotify_track": "",
-  "obsidian_inbox_path": "",
-  "apps": []
+  "obsidian_inbox_path": ""
 }
