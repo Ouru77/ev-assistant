@@ -4,6 +4,8 @@
 
 > *A private, offline-first desktop voice assistant with a cyber "PC-dashboard" HUD — inspired by **E.V.**, the AI Peter Parker builds in Spider-Man: Brand New Day. It talks, controls your PC, and remembers you — all running locally.*
 
+![E.V. cyber dashboard](docs/dashboard-en.png)
+
 E.V. runs **entirely on your own computer**. You talk (or type), it thinks, and it answers out loud. No cloud account required, no data leaving your machine by default. The look isn't flashy Stark holograms — it's a **grid-based cyber terminal**, in the spirit of a "budget genius" workshop.
 
 Works in **English or Turkish** out of the box. It can also **control your PC** (open/close apps, media & volume, power) and **remembers things about you** between sessions.
@@ -163,6 +165,8 @@ Character inspiration: *Spider-Man: Brand New Day* (E.V., voiced by Naomi Watts)
 E.V., tamamen **kendi bilgisayarında** çalışan, gizliliğe önem veren bir sesli asistandır. Konuşursun ya da yazarsın; anlar, düşünür ve sesle cevap verir. Arayüzü gösterişli hologramlar değil, **grid tabanlı siber bir terminal** — Peter'ın atölyesindeki "bütçesiz ama dahi" havasında. **Türkçe ve İngilizce** çalışır; ayrıca **bilgisayarını kontrol edebilir** (uygulama aç/kapat, ses/müzik, güç) ve **seninle ilgili şeyleri hatırlar**.
 
 İsim ve karakter, *Spider-Man: Brand New Day*'deki Peter Parker'ın kendi yaptığı asistan **E.V.**'den esinlenir: sakin, zeki, mucit ruhlu.
+
+![E.V. siber panosu](docs/dashboard-tr.png)
 
 ## ✨ Özellikler
 

@@ -13,7 +13,39 @@ let listeningEnabled = false;  // muted by default; Ctrl+Space / orb click toggl
 let audioUnlocked = false;
 let watchdog = null;
 let currentEvDiv = null;  // streamed E.V. line being appended to
-let appLang = 'tr';       // set from /stats; drives browser TTS language
+// Language: /stats sets it from config; ?lang=en|tr overrides (handy for previews).
+const _langOverride = new URLSearchParams(location.search).get('lang');
+let appLang = _langOverride === 'en' ? 'en' : 'tr';  // set from /stats; drives TTS + UI
+
+// Static UI labels translated when appLang === 'en' (tr = as authored in HTML).
+const I18N = {
+    en: {
+        sys: '// SYSTEM', modules: '// MODULES', workshop: '// WORKSHOP', log: '// EVENT LOG',
+        mem: 'MEMORY', wind: 'WIND', core: 'CORE', voice: 'VOICE', send: 'SEND',
+        start: 'Press Ctrl+Space to start', ph: 'Message E.V.…',
+    },
+};
+let i18nApplied = false;
+function applyI18n() {
+    document.documentElement.lang = appLang;
+    const d = I18N[appLang];
+    if (!d) return;  // Turkish: leave the HTML as written
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const k = el.getAttribute('data-i18n'); if (d[k]) el.textContent = d[k];
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        const k = el.getAttribute('data-i18n-ph'); if (d[k]) el.placeholder = d[k];
+    });
+}
+
+// Dynamic status strings (change with state).
+const STR = {
+    tr: { start: 'Başlamak için tıkla / Ctrl+Space', muted: 'Sessiz — Ctrl+Space ile aç',
+          listening: 'Dinliyorum…', idleMuted: 'Sessize alındı (boşta) — Ctrl+Space ile aç' },
+    en: { start: 'Click / Ctrl+Space to start', muted: 'Muted — press Ctrl+Space',
+          listening: 'Listening…', idleMuted: 'Muted (idle) — press Ctrl+Space' },
+};
+const T = (k) => (STR[appLang] || STR.tr)[k] || '';
 
 // Track "waiting for E.V." with a safety timeout so the UI never gets stuck.
 function setAwaiting(v) {
@@ -121,7 +153,7 @@ function vadTick() {
         if (now - lastActivity > IDLE_MUTE_MS) {
             listeningEnabled = false;
             setOrbState('muted');
-            status.textContent = 'Sessize alındı (boşta) — Ctrl+Space ile aç';
+            status.textContent = T('idleMuted');
             logSys('Konuşma modu boşta kaldı, sessize alındı.');
             return;
         }
@@ -247,10 +279,10 @@ function resumeListening() {
     if (busy()) return;
     if (listeningEnabled && analyser) {
         setOrbState('listening');
-        status.textContent = 'Dinliyorum…';
+        status.textContent = T('listening');
     } else {
         setOrbState(analyser ? 'muted' : 'idle');
-        status.textContent = analyser ? 'Sessiz — Ctrl+Space ile aç' : 'Başlamak için tıkla / Ctrl+Space';
+        status.textContent = analyser ? T('muted') : T('start');
     }
 }
 
@@ -321,11 +353,11 @@ async function toggleListen() {
     listeningEnabled = !listeningEnabled;
     if (listeningEnabled) {
         markActivity();
-        if (!busy()) { setOrbState('listening'); status.textContent = 'Dinliyorum…'; }
+        if (!busy()) { setOrbState('listening'); status.textContent = T('listening'); }
     } else {
         if (recording) { try { mediaRecorder.stop(); } catch (e) {} recording = false; recChunks = []; }
         setOrbState('muted');
-        status.textContent = 'Sessiz — Ctrl+Space ile aç';
+        status.textContent = T('muted');
     }
 }
 
@@ -346,8 +378,9 @@ function updateClock() {
     const now = new Date();
     const t = document.getElementById('clock-time');
     const d = document.getElementById('clock-date');
-    if (t) t.textContent = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-    if (d) d.textContent = now.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const loc = appLang === 'en' ? 'en-US' : 'tr-TR';
+    if (t) t.textContent = now.toLocaleTimeString(loc, { hour: '2-digit', minute: '2-digit' });
+    if (d) d.textContent = now.toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' });
 }
 setInterval(updateClock, 1000);
 updateClock();
@@ -363,11 +396,18 @@ function setText(id, txt) { const el = document.getElementById(id); if (el) el.t
 async function pollStats() {
     try {
         const s = await (await fetch('/stats')).json();
-        if (s.language) appLang = s.language;
+        if (s.language && !_langOverride) appLang = s.language;
+        if (!i18nApplied) { applyI18n(); i18nApplied = true; }
         setBar('cpu', s.cpu); setBar('ram', s.ram); setBar('disk', s.disk);
         setText('s-ram', s.ram_used_gb + '/' + s.ram_total_gb + ' GB');
         setText('s-disk', s.disk_free_gb + ' GB');
         setText('w-city', s.city || 'İzmir');
+        const dl = document.getElementById('lbl-disk');
+        if (dl) dl.textContent = (appLang === 'en' ? 'FREE (' : 'BOŞ (') + (s.disk_drive || '—') + ')';
+        if (s.modules) {
+            setText('m-stt', s.modules.stt); setText('m-brain', s.modules.brain);
+            setText('m-voice', s.modules.voice); setText('m-gpu', s.modules.gpu);
+        }
         if (s.weather) {
             setText('w-temp', s.weather.temp + '°');
             setText('w-desc', s.weather.description);
@@ -409,11 +449,15 @@ if (isElectron) {
     wire('btn-hide', () => window.electronAPI.hide());
 }
 
-const STATUS_LABEL = { idle: 'ONLINE', muted: 'SESSİZ', listening: 'DİNLİYOR', thinking: 'İŞLİYOR', speaking: 'KONUŞUYOR' };
+const STATUS_LABEL = {
+    tr: { idle: 'ONLINE', muted: 'SESSİZ', listening: 'DİNLİYOR', thinking: 'İŞLİYOR', speaking: 'KONUŞUYOR' },
+    en: { idle: 'ONLINE', muted: 'MUTED', listening: 'LISTENING', thinking: 'PROCESSING', speaking: 'SPEAKING' },
+};
 function setOrbState(state) {
     orbState = state;
     const cs = document.getElementById('core-state');
-    if (cs) cs.textContent = STATUS_LABEL[state] || 'ONLINE';
+    const lbl = STATUS_LABEL[appLang] || STATUS_LABEL.tr;
+    if (cs) cs.textContent = lbl[state] || 'ONLINE';
     const mic = document.getElementById('mic-btn');
     if (mic) mic.classList.toggle('on', state === 'listening');
 }
@@ -545,18 +589,32 @@ const hhmm = () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', min
 (function () {
     const box = document.getElementById('workshop');
     if (!box) return;
-    const POOL = [
-        ['doku birimi', 'kalibrasyon bekliyor'], ['lehim', '340°C, hazır'],
-        ['kahve', 'kritik seviye'], ['sırt çantası', 'tornavida + notlar'],
-        ['çatı katı', 'esinti geliyor'], ['eski radyo', 'parazit arasında bir çağrı'],
-        ['3 blok öte', 'siren dinleniyor'], ['not', "'büyük güç…' (karalanmış)"],
-        ['devre kartı', 'lehim soğuyor'], ['batarya', '%86, şarj oluyor'],
-        ['gece nöbeti', 'gündem sakin'], ['eskiz', 'yeni tasarım karalandı'],
-        ['multimetre', 'iade bekliyor'], ['maske', 'onarım listesinde'],
-        ['pencere', 'aralık bırakıldı'], ['sensör dizisi', 'yeşil'],
-        ['şehir', 'nefes alıyor'], ['fizik ödevi', 'yarına ertelendi'],
-    ];
+    const POOLS = {
+        tr: [
+            ['doku birimi', 'kalibrasyon bekliyor'], ['lehim', '340°C, hazır'],
+            ['kahve', 'kritik seviye'], ['sırt çantası', 'tornavida + notlar'],
+            ['çatı katı', 'esinti geliyor'], ['eski radyo', 'parazit arasında bir çağrı'],
+            ['3 blok öte', 'siren dinleniyor'], ['not', "'büyük güç…' (karalanmış)"],
+            ['devre kartı', 'lehim soğuyor'], ['batarya', '%86, şarj oluyor'],
+            ['gece nöbeti', 'gündem sakin'], ['eskiz', 'yeni tasarım karalandı'],
+            ['multimetre', 'iade bekliyor'], ['maske', 'onarım listesinde'],
+            ['pencere', 'aralık bırakıldı'], ['sensör dizisi', 'yeşil'],
+            ['şehir', 'nefes alıyor'], ['fizik ödevi', 'yarına ertelendi'],
+        ],
+        en: [
+            ['fabricator', 'awaiting calibration'], ['solder', '340°C, ready'],
+            ['coffee', 'critical level'], ['backpack', 'screwdriver + notes'],
+            ['rooftop', 'a breeze rolling in'], ['old radio', 'a call through static'],
+            ['3 blocks over', 'siren, listening'], ['note', "'great power…' (scribbled)"],
+            ['circuit board', 'solder cooling'], ['battery', '86%, charging'],
+            ['night watch', 'all quiet'], ['sketch', 'new design roughed out'],
+            ['multimeter', 'still borrowed'], ['mask', 'on the repair list'],
+            ['window', 'left ajar'], ['sensor array', 'green'],
+            ['the city', 'breathing'], ['physics homework', 'put off till tomorrow'],
+        ],
+    };
     function append() {
+        const POOL = POOLS[appLang] || POOLS.tr;
         const [tag, txt] = POOL[Math.floor(Math.random() * POOL.length)];
         const line = document.createElement('span');
         line.className = 'wl';
@@ -618,5 +676,6 @@ setTimeout(() => { maybeThink(); setInterval(maybeThink, 45000); }, 12000);
     });
 })();
 
-logSys('E.V. çekirdeği başlatıldı.');
+applyI18n();  // apply immediately for ?lang override; pollStats re-applies for server config
+logSys(appLang === 'en' ? 'E.V. core initialized.' : 'E.V. çekirdeği başlatıldı.');
 connect();

@@ -40,35 +40,35 @@
 
         <!-- Left: system + modules -->
         <aside id="panel-system" class="panel dash-only">
-            <h3>// SİSTEM</h3>
+            <h3 data-i18n="sys">// SİSTEM</h3>
             <div class="stat"><label>CPU</label><div class="bar"><i id="bar-cpu"></i></div><span class="pct" id="val-cpu">—</span></div>
             <div class="stat"><label>RAM</label><div class="bar"><i id="bar-ram"></i></div><span class="pct" id="val-ram">—</span></div>
             <div class="stat"><label>DISK</label><div class="bar"><i id="bar-disk"></i></div><span class="pct" id="val-disk">—</span></div>
             <div class="substats">
-                <div><b id="s-ram">—</b><label>BELLEK</label></div>
-                <div><b id="s-disk">—</b><label>BOŞ (A:)</label></div>
-                <div><b id="s-wind">—</b><label>RÜZGÂR</label></div>
+                <div><b id="s-ram">—</b><label data-i18n="mem">BELLEK</label></div>
+                <div><b id="s-disk">—</b><label id="lbl-disk">BOŞ (—)</label></div>
+                <div><b id="s-wind">—</b><label data-i18n="wind">RÜZGÂR</label></div>
             </div>
-            <h3 class="mt">// MODÜLLER</h3>
+            <h3 class="mt" data-i18n="modules">// MODÜLLER</h3>
             <ul id="modules">
-                <li><span class="ok">●</span> STT ······· WHISPER</li>
-                <li><span class="ok">●</span> ÇEKİRDEK ·· GEMMA2:9B</li>
-                <li><span class="ok">●</span> SES ······· ELEVENLABS</li>
-                <li><span class="ok">●</span> GPU ······· RX 6700 XT</li>
+                <li><span class="ok">●</span> <span class="ml">STT</span><span class="mv" id="m-stt">—</span></li>
+                <li><span class="ok">●</span> <span class="ml" data-i18n="core">ÇEKİRDEK</span><span class="mv" id="m-brain">—</span></li>
+                <li><span class="ok">●</span> <span class="ml" data-i18n="voice">SES</span><span class="mv" id="m-voice">—</span></li>
+                <li><span class="ok">●</span> <span class="ml">GPU</span><span class="mv" id="m-gpu">—</span></li>
             </ul>
-            <h3 class="mt">// ATÖLYE</h3>
+            <h3 class="mt" data-i18n="workshop">// ATÖLYE</h3>
             <div id="workshop"></div>
         </aside>
 
         <!-- Center: audio core visualizer -->
         <section id="viz-stage">
             <canvas id="viz"></canvas>
-            <div id="status">Başlamak için Ctrl+Space</div>
+            <div id="status" data-i18n="start">Başlamak için Ctrl+Space</div>
         </section>
 
         <!-- Right: event / conversation log -->
         <section id="panel-log" class="panel">
-            <h3 class="dash-only">// OLAY GÜNLÜĞÜ</h3>
+            <h3 class="dash-only" data-i18n="log">// OLAY GÜNLÜĞÜ</h3>
             <div id="transcript"></div>
         </section>
 
@@ -77,9 +77,9 @@
             <div id="codestrip"><span id="code-line"></span></div>
             <div id="terminal-input">
                 <span class="prompt">&gt;</span>
-                <input id="text-input" type="text" placeholder="E.V.'ye yaz…" autocomplete="off" spellcheck="false" />
+                <input id="text-input" type="text" placeholder="E.V.'ye yaz…" data-i18n-ph="ph" autocomplete="off" spellcheck="false" />
                 <button id="mic-btn" title="Dinle (Ctrl+Space)">MIC</button>
-                <button id="send-btn" title="Gönder">GÖNDER</button>
+                <button id="send-btn" data-i18n="send" title="Gönder">GÖNDER</button>
             </div>
         </footer>
     </div>

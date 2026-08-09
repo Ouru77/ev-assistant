@@ -187,6 +187,15 @@ WMO_TR = {
     95: "gök gürültülü fırtına", 96: "dolulu fırtına", 99: "şiddetli dolulu fırtına",
 }
 
+WMO_EN = {
+    0: "clear", 1: "mostly clear", 2: "partly cloudy", 3: "overcast",
+    45: "foggy", 48: "rime fog", 51: "light drizzle", 53: "drizzle", 55: "heavy drizzle",
+    61: "light rain", 63: "rain", 65: "heavy rain",
+    71: "light snow", 73: "snow", 75: "heavy snow", 77: "snow grains",
+    80: "showers", 81: "rain showers", 82: "heavy showers",
+    95: "thunderstorm", 96: "hail storm", 99: "severe hail storm",
+}
+
 
 def get_weather_sync():
     """Fetch current weather for CITY via open-meteo (free, reliable, no key)."""
@@ -203,10 +212,11 @@ def get_weather_sync():
             "&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m"
         )
         c = json.loads(urllib.request.urlopen(url, timeout=6).read())["current"]
+        wmo = WMO_EN if LANGUAGE == "en" else WMO_TR
         return {
             "temp": round(c["temperature_2m"]),
             "feels_like": round(c["apparent_temperature"]),
-            "description": WMO_TR.get(c["weather_code"], "bilinmiyor"),
+            "description": wmo.get(c["weather_code"], "—"),
             "humidity": c["relative_humidity_2m"],
             "wind_kmh": round(c["wind_speed_10m"]),
         }
@@ -743,6 +753,43 @@ async def websocket_endpoint(ws: WebSocket):
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "frontend")), name="static")
 
 
+_GPU_NAME = None
+
+
+def get_gpu_name() -> str:
+    """Detect the primary GPU once (Windows), cached. Falls back to 'GPU'."""
+    global _GPU_NAME
+    if _GPU_NAME is not None:
+        return _GPU_NAME
+    name = "GPU"
+    try:
+        import subprocess
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "(Get-CimInstance Win32_VideoController | Sort-Object AdapterRAM -Descending "
+             "| Select-Object -First 1).Name"],
+            capture_output=True, text=True, timeout=8,
+        )
+        n = (r.stdout or "").strip()
+        if n:
+            name = n.replace("AMD ", "").replace("NVIDIA ", "").replace("(R)", "").strip()
+    except Exception:
+        pass
+    _GPU_NAME = name
+    return name
+
+
+def module_info():
+    """What each subsystem is on THIS machine (so every user sees their own)."""
+    brain = OLLAMA_MODEL if LLM_PROVIDER == "ollama" else "claude"
+    return {
+        "stt": STT_PROVIDER,
+        "brain": brain,
+        "voice": TTS_PROVIDER,
+        "gpu": get_gpu_name(),
+    }
+
+
 @app.get("/stats")
 async def stats():
     import psutil
@@ -763,6 +810,7 @@ async def stats():
         "weather": WEATHER_INFO or None,
         "city": CITY,
         "language": LANGUAGE,
+        "modules": module_info(),
     }
 
 

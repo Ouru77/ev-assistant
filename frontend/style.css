@@ -125,7 +125,9 @@ body.dashboard .panel::before {
 .substats b { display: block; font-size: 14px; color: var(--blue); }
 .substats label { font-size: 9px; color: var(--dim); letter-spacing: 0.5px; }
 #modules { list-style: none; font-size: 12px; line-height: 1.9; color: var(--text); }
-#modules .ok { color: var(--green); text-shadow: 0 0 6px var(--green); }
+#modules .ok { color: var(--green); text-shadow: 0 0 6px var(--green); margin-right: 6px; }
+#modules .ml { display: inline-block; width: 84px; color: var(--dim); letter-spacing: 1px; }
+#modules .mv { color: var(--text); text-transform: uppercase; }
 
 /* Workshop terminal log (Brand New Day flavor) — fills the left column, scrolls */
 #workshop {
