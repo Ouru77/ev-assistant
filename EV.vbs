@@ -4,7 +4,8 @@ Dim sh, fso, proj, ollama, electron
 Set sh = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
-proj = "A:\Claude Projelerim\E.V"
+' Betiğin bulunduğu klasör = proje kökü (herkeste taşınabilir çalışır).
+proj = fso.GetParentFolderName(WScript.ScriptFullName)
 ollama = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Programs\Ollama\ollama.exe"
 electron = proj & "\node_modules\electron\dist\electron.exe"
 
