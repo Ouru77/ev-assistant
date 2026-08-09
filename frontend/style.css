@@ -127,6 +127,11 @@ body.dashboard .panel::before {
 #modules { list-style: none; font-size: 12px; line-height: 1.9; color: var(--text); }
 #modules .ok { color: var(--green); text-shadow: 0 0 6px var(--green); }
 
+/* Workshop easter-egg log (Brand New Day flavor) */
+#workshop { list-style: none; font-size: 11px; line-height: 1.85; color: var(--dim); }
+#workshop li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .4s; }
+#workshop li .tag { color: var(--blue); }
+
 /* conversation/log */
 body.dashboard #transcript { flex: 1 1 auto; min-height: 0; }
 

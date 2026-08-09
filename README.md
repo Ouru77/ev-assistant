@@ -149,6 +149,8 @@ Started from Julian Ivanov's [`jarvis-voice-assistant`](https://github.com/Julia
 
 Character inspiration: *Spider-Man: Brand New Day* (E.V., voiced by Naomi Watts). This is a fan project, not affiliated with Marvel or Sony.
 
+> Built by **[Ouru77](https://github.com/Ouru77)**. If you use or build on E.V., keeping the MIT notice is required — and a link back is genuinely appreciated. 🙏
+
 ## 📜 License
 
 [MIT](LICENSE) — do what you like, just keep the notice. See the LICENSE file for the template credit and fan-project note.

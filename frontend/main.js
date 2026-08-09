@@ -540,5 +540,58 @@ drawViz();
     el.textContent = s + s; // doubled for seamless scroll
 })();
 
+// ---- Workshop easter-egg log (Brand New Day flavor; original lines, no quotes) ----
+(function () {
+    const box = document.getElementById('workshop');
+    if (!box) return;
+    const POOL = [
+        ['eskiz defteri', 'yeni tasarım karalandı'],
+        ['lehim havyası', '340°C — hazır'],
+        ['kahve', 'kritik seviye'],
+        ['sırt çantası', 'tornavida, multimetre, fizik notları'],
+        ['çatı katı', 'esinti geliyor'],
+        ['dokuma birimi', 'kalibrasyon bekliyor'],
+        ['eski radyo', 'parazit arasında bir çağrı'],
+        ['3 blok öte', 'siren dinleniyor'],
+        ['not', "'büyük güç…' (gerisi karalanmış)"],
+        ['devre kartı', 'lehim soğuyor'],
+        ['batarya', '%86, şarj oluyor'],
+        ['gece nöbeti', 'gündem sakin'],
+        ['yapılacaklar', 'ödev, devriye, uyku (belki)'],
+        ['komşu', 'selam verdi, yanıt gecikti'],
+    ];
+    function render() {
+        const idx = [...Array(POOL.length).keys()].sort(() => Math.random() - 0.5).slice(0, 3);
+        const items = box.querySelectorAll('li');
+        idx.forEach((p, i) => {
+            if (!items[i]) return;
+            items[i].style.opacity = 0;
+            setTimeout(() => {
+                items[i].innerHTML = `<span class="tag">${POOL[p][0]}</span> ›› ${POOL[p][1]}`;
+                items[i].style.opacity = 1;
+            }, 400);
+        });
+    }
+    render();
+    setInterval(render, 6000);
+})();
+
+// Hidden easter egg: tap "E.V. CORE" three times.
+(function () {
+    const el = document.querySelector('.core-name');
+    if (!el) return;
+    let n = 0, t = 0;
+    el.style.cursor = 'default';
+    el.addEventListener('click', () => {
+        const now = Date.now();
+        n = (now - t < 800) ? n + 1 : 1;
+        t = now;
+        if (n >= 3) {
+            n = 0;
+            logSys("E.V. ›› atölye günlüğü #001 — 'çatıdan şehir güzel görünüyor.'");
+        }
+    });
+})();
+
 logSys('E.V. çekirdeği başlatıldı.');
 connect();
