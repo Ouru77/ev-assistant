@@ -43,6 +43,8 @@ LANGUAGE = config.get("language", "tr").lower()
 TASKS_FILE = config.get("obsidian_inbox_path", "")
 PC_CONTROL = bool(config.get("pc_control", True))
 CONVERSATION_MODE = bool(config.get("conversation_mode", True))
+HISTORY_TURNS = int(config.get("history_turns", 30))  # how many recent messages to keep in context
+NUM_CTX = int(config.get("num_ctx", 4096))            # Ollama context window; falls back if VRAM is tight
 
 # --- Long-term memory: short facts E.V. remembers about the user ------------
 MEMORY_PATH = os.path.join(os.path.dirname(__file__), "memory.json")
@@ -106,16 +108,24 @@ http = httpx.AsyncClient(timeout=180)
 async def llm_chat(system: str, messages: list, max_tokens: int = 400) -> str:
     """Send a chat request to the configured LLM backend and return the reply text."""
     if LLM_PROVIDER == "ollama":
-        payload = {
-            "model": OLLAMA_MODEL,
-            "messages": [{"role": "system", "content": system}] + messages,
-            "stream": False,
-            "keep_alive": "30m",  # keep the model warm in VRAM between turns
-            "options": {"num_predict": max_tokens, "temperature": 0.7},
-        }
-        resp = await http.post(f"{OLLAMA_URL}/api/chat", json=payload)
-        resp.raise_for_status()
-        return resp.json()["message"]["content"]
+        msgs = [{"role": "system", "content": system}] + messages
+        last_err = None
+        # Try the configured context; if VRAM is tight (e.g. a game is running),
+        # fall back to Ollama's default so E.V. still answers instead of erroring.
+        for ctx in (NUM_CTX, None):
+            opts = {"num_predict": max_tokens, "temperature": 0.7}
+            if ctx:
+                opts["num_ctx"] = ctx
+            payload = {"model": OLLAMA_MODEL, "messages": msgs, "stream": False,
+                       "keep_alive": "30m", "options": opts}
+            try:
+                resp = await http.post(f"{OLLAMA_URL}/api/chat", json=payload)
+                resp.raise_for_status()
+                return resp.json()["message"]["content"]
+            except Exception as e:
+                last_err = e
+                print(f"[E.V.] llm_chat ctx={ctx} hatası, düşülüyor: {str(e)[:100]}", flush=True)
+        raise last_err
 
     # Default: Anthropic
     if ai is None:
@@ -135,27 +145,40 @@ async def llm_stream(system: str, messages: list, max_tokens: int = 400):
         # No token streaming for Anthropic here — emit the whole reply as one chunk.
         yield await llm_chat(system, messages, max_tokens)
         return
-    payload = {
-        "model": OLLAMA_MODEL,
-        "messages": [{"role": "system", "content": system}] + messages,
-        "stream": True,
-        "keep_alive": "30m",
-        "options": {"num_predict": max_tokens, "temperature": 0.7},
-    }
-    async with http.stream("POST", f"{OLLAMA_URL}/api/chat", json=payload) as resp:
-        resp.raise_for_status()
-        async for line in resp.aiter_lines():
-            if not line.strip():
-                continue
-            try:
-                obj = json.loads(line)
-            except Exception:
-                continue
-            piece = obj.get("message", {}).get("content", "")
-            if piece:
-                yield piece
-            if obj.get("done"):
-                break
+    msgs = [{"role": "system", "content": system}] + messages
+    last_err = None
+    # Try the configured context; fall back to Ollama's default if VRAM is tight.
+    for ctx in (NUM_CTX, None):
+        opts = {"num_predict": max_tokens, "temperature": 0.7}
+        if ctx:
+            opts["num_ctx"] = ctx
+        payload = {"model": OLLAMA_MODEL, "messages": msgs, "stream": True,
+                   "keep_alive": "30m", "options": opts}
+        yielded = False
+        try:
+            async with http.stream("POST", f"{OLLAMA_URL}/api/chat", json=payload) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line.strip():
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    piece = obj.get("message", {}).get("content", "")
+                    if piece:
+                        yielded = True
+                        yield piece
+                    if obj.get("done"):
+                        break
+            return
+        except Exception as e:
+            last_err = e
+            print(f"[E.V.] llm_stream ctx={ctx} hatası, düşülüyor: {str(e)[:100]}", flush=True)
+            if yielded:
+                raise  # already streamed part of the reply — don't restart it
+    if last_err:
+        raise last_err
 
 app = FastAPI()
 
@@ -441,7 +464,7 @@ async def _warm_ollama():
         await http.post(f"{OLLAMA_URL}/api/chat", json={
             "model": OLLAMA_MODEL, "stream": False, "keep_alive": "30m",
             "messages": [{"role": "user", "content": "merhaba"}],
-            "options": {"num_predict": 1},
+            "options": {"num_predict": 1, "num_ctx": NUM_CTX},  # match real requests → no reload
         }, timeout=180)
         print("[E.V.] Model ısıtıldı (VRAM).", flush=True)
     except Exception as e:
@@ -568,7 +591,7 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         await deliver_action(session_id, routed, ws)
         return
 
-    history = conversations[session_id][-16:]
+    history = conversations[session_id][-HISTORY_TURNS:]
 
     if TTS_PROVIDER == "browser":
         # Browser speech reads the whole reply — streaming brings no benefit.

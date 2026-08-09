@@ -25,6 +25,10 @@
   "pc_control": true,
   "conversation_mode": true,
 
+  "_memory": "history_turns: kaç son mesaj bağlamda tutulur (uzun sohbet/RP için artır). num_ctx: Ollama bağlam penceresi (token). Büyütmek daha çok VRAM ister; VRAM boşsa 8192'ye çıkarabilirsin, oyun/başka yük varken E.V. otomatik daha küçük bağlama düşer.",
+  "history_turns": 30,
+  "num_ctx": 4096,
+
   "workspace_path": "",
   "browser_url": "https://www.google.com",
   "spotify_track": "",
