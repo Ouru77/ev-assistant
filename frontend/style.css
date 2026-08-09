@@ -127,10 +127,21 @@ body.dashboard .panel::before {
 #modules { list-style: none; font-size: 12px; line-height: 1.9; color: var(--text); }
 #modules .ok { color: var(--green); text-shadow: 0 0 6px var(--green); }
 
-/* Workshop easter-egg log (Brand New Day flavor) */
-#workshop { list-style: none; font-size: 11px; line-height: 1.85; color: var(--dim); }
-#workshop li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .4s; }
-#workshop li .tag { color: var(--blue); }
+/* Workshop terminal log (Brand New Day flavor) — fills the left column, scrolls */
+#workshop {
+    flex: 1 1 auto; min-height: 60px; overflow: hidden;
+    font-size: 11px; line-height: 1.7; color: var(--dim);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
+            mask-image: linear-gradient(to bottom, transparent 0, #000 22px);
+}
+#workshop .wl { display: block; margin-bottom: 3px; word-break: break-word; animation: wl-in .35s ease; }
+#workshop .wl .wt { color: var(--line); margin-right: 6px; }
+#workshop .wl .tag { color: var(--blue); }
+@keyframes wl-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+
+/* E.V.'s ambient "thoughts" in the right-side log */
+#transcript .thought { color: var(--dim); font-style: italic; opacity: .85; }
+#transcript .thought::before { content: 'E.V. ~ '; color: var(--line); font-style: normal; }
 
 /* conversation/log */
 body.dashboard #transcript { flex: 1 1 auto; min-height: 0; }

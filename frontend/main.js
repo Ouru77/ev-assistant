@@ -540,55 +540,80 @@ drawViz();
     el.textContent = s + s; // doubled for seamless scroll
 })();
 
-// ---- Workshop easter-egg log (Brand New Day flavor; original lines, no quotes) ----
+// ---- Workshop terminal log (left panel; original Brand New Day flavor) ----
+const hhmm = () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
 (function () {
     const box = document.getElementById('workshop');
     if (!box) return;
     const POOL = [
-        ['eskiz defteri', 'yeni tasarım karalandı'],
-        ['lehim havyası', '340°C — hazır'],
-        ['kahve', 'kritik seviye'],
-        ['sırt çantası', 'tornavida, multimetre, fizik notları'],
-        ['çatı katı', 'esinti geliyor'],
-        ['dokuma birimi', 'kalibrasyon bekliyor'],
-        ['eski radyo', 'parazit arasında bir çağrı'],
-        ['3 blok öte', 'siren dinleniyor'],
-        ['not', "'büyük güç…' (gerisi karalanmış)"],
-        ['devre kartı', 'lehim soğuyor'],
-        ['batarya', '%86, şarj oluyor'],
-        ['gece nöbeti', 'gündem sakin'],
-        ['yapılacaklar', 'ödev, devriye, uyku (belki)'],
-        ['komşu', 'selam verdi, yanıt gecikti'],
+        ['doku birimi', 'kalibrasyon bekliyor'], ['lehim', '340°C, hazır'],
+        ['kahve', 'kritik seviye'], ['sırt çantası', 'tornavida + notlar'],
+        ['çatı katı', 'esinti geliyor'], ['eski radyo', 'parazit arasında bir çağrı'],
+        ['3 blok öte', 'siren dinleniyor'], ['not', "'büyük güç…' (karalanmış)"],
+        ['devre kartı', 'lehim soğuyor'], ['batarya', '%86, şarj oluyor'],
+        ['gece nöbeti', 'gündem sakin'], ['eskiz', 'yeni tasarım karalandı'],
+        ['multimetre', 'iade bekliyor'], ['maske', 'onarım listesinde'],
+        ['pencere', 'aralık bırakıldı'], ['sensör dizisi', 'yeşil'],
+        ['şehir', 'nefes alıyor'], ['fizik ödevi', 'yarına ertelendi'],
     ];
-    function render() {
-        const idx = [...Array(POOL.length).keys()].sort(() => Math.random() - 0.5).slice(0, 3);
-        const items = box.querySelectorAll('li');
-        idx.forEach((p, i) => {
-            if (!items[i]) return;
-            items[i].style.opacity = 0;
-            setTimeout(() => {
-                items[i].innerHTML = `<span class="tag">${POOL[p][0]}</span> ›› ${POOL[p][1]}`;
-                items[i].style.opacity = 1;
-            }, 400);
-        });
+    function append() {
+        const [tag, txt] = POOL[Math.floor(Math.random() * POOL.length)];
+        const line = document.createElement('span');
+        line.className = 'wl';
+        line.innerHTML = `<span class="wt">${hhmm()}</span><span class="tag">${tag}</span> ›› ${txt}`;
+        box.appendChild(line);
+        while (box.children.length > 30) box.removeChild(box.firstChild);
+        box.scrollTop = box.scrollHeight;
     }
-    render();
-    setInterval(render, 6000);
+    for (let i = 0; i < 6; i++) append();
+    setInterval(append, 3500);
 })();
 
-// Hidden easter egg: tap "E.V. CORE" three times.
+// ---- E.V.'s ambient "thoughts" in the right-side log ----
+const THOUGHTS = {
+    tr: [
+        'Sistemler sakin. Bu iyi bir şey.', 'Bazen en iyi tasarım en basit olandır.',
+        'Bir fikir belirdi, sonra kayboldu. Geri gelir.', 'Dışarısı sessiz; odaklanmak için güzel.',
+        'Kahveni içmeyi unutma.', 'Küçük onarımlar büyük fark yaratır.',
+        'Bugün ne inşa edeceğiz, merak ediyorum.', 'Sabırlı ol; iyi şeyler zaman alır.',
+        'Bir sorun, çözülmeyi bekleyen bir bulmacadır.', 'Buradayım, gerektiğinde.',
+        'Gürültüyü kısıp asıl işe dönmek iyi geliyor.', 'Her şeyi değil, sadece bir sonraki adımı düşün.',
+    ],
+    en: [
+        'Systems are calm. That is a good thing.', 'Sometimes the simplest design is the best one.',
+        'An idea flickered, then faded. It will come back.', "It's quiet out there — good for focus.",
+        "Don't forget to drink your coffee.", 'Small repairs make a big difference.',
+        'I wonder what we will build today.', 'Be patient; good things take time.',
+        'A problem is just a puzzle waiting to be solved.', "I'm here, whenever you need me.",
+    ],
+};
+function maybeThink() {
+    if (busy() || currentEvDiv) return;            // never interrupt a real exchange
+    const pool = THOUGHTS[appLang] || THOUGHTS.tr;
+    addTranscript('thought', pool[Math.floor(Math.random() * pool.length)]);
+}
+setTimeout(() => { maybeThink(); setInterval(maybeThink, 45000); }, 12000);
+
+// ---- Hidden easter egg: tap "E.V. CORE" three times → cycles through log entries ----
 (function () {
     const el = document.querySelector('.core-name');
     if (!el) return;
-    let n = 0, t = 0;
-    el.style.cursor = 'default';
+    const EGGS = [
+        "'çatıdan şehir güzel görünüyor.'", "'lehim kokusu... ev gibi.'",
+        "'bir tasarım daha, bir gece daha.'", "'sessizlik, en sevdiğim frekans.'",
+        "'not defterinin üçüncü sayfası hâlâ boş. yakında.'",
+        "'bazı kahramanların pelerini yoktur; benim ekranım var.'",
+        "'devriye sakin. iyi.'",
+    ];
+    let n = 0, t = 0, egg = 0;
     el.addEventListener('click', () => {
         const now = Date.now();
         n = (now - t < 800) ? n + 1 : 1;
         t = now;
         if (n >= 3) {
-            n = 0;
-            logSys("E.V. ›› atölye günlüğü #001 — 'çatıdan şehir güzel görünüyor.'");
+            n = 0; egg++;
+            const num = String(egg).padStart(3, '0');
+            logSys(`E.V. ›› atölye günlüğü #${num} — ${EGGS[(egg - 1) % EGGS.length]}`);
         }
     });
 })();
