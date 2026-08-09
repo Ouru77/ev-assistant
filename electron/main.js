@@ -115,6 +115,8 @@ ipcMain.on('set-mode', (e, mode) => {
 
 ipcMain.on('quit', () => app.quit());
 ipcMain.on('hide', () => { if (win) win.hide(); });
+// Show without stealing focus from the app the user is in.
+ipcMain.on('show', () => { if (win) win.showInactive(); });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();

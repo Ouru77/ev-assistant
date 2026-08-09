@@ -244,6 +244,7 @@ ACTION_PATTERN = re.compile(r'\[ACTION:(\w+)\]\s*(.*?)$', re.DOTALL | re.MULTILI
 
 conversations: dict[str, list] = {}
 pending_actions: dict[str, dict] = {}  # destructive actions awaiting a spoken "evet"
+clients: set = set()  # connected WebSocket clients (for broadcast, e.g. fullscreen)
 
 def build_system_prompt():
     wb = strings.weather_block(LANGUAGE, CITY, WEATHER_INFO) if WEATHER_INFO else ""
@@ -391,6 +392,17 @@ async def execute_action(action: dict) -> str:
     elif t == "CMD":
         return await asyncio.to_thread(pc_control.run_command, p)
 
+    elif t == "MOUSE":
+        return "__SPOKEN__" + await asyncio.to_thread(pc_control.mouse, p)
+
+    elif t == "YOUTUBE":
+        res = await browser_tools.youtube_open(p)
+        if "error" in res:
+            return f"__SPOKEN__{S('action_failed')}"
+        if LANGUAGE == "en":
+            return f"__SPOKEN__Opening {p} on YouTube."
+        return f"__SPOKEN__YouTube'da {p} açılıyor."
+
     return ""
 
 
@@ -426,9 +438,31 @@ async def _warm_ollama():
         print(f"[E.V.] Isıtma hatası: {e}", flush=True)
 
 
+async def _fullscreen_watch():
+    """Poll for a fullscreen app and tell clients to tray/restore E.V. accordingly."""
+    last = None
+    while True:
+        try:
+            active = await asyncio.to_thread(pc_control.fullscreen_active)
+            if active != last:
+                last = active
+                dead = []
+                for ws in list(clients):
+                    try:
+                        await ws.send_json({"type": "fullscreen", "active": active})
+                    except Exception:
+                        dead.append(ws)
+                for ws in dead:
+                    clients.discard(ws)
+        except Exception as e:
+            print(f"[E.V.] Tam ekran izleme hatası: {e}", flush=True)
+        await asyncio.sleep(1.5)
+
+
 @app.on_event("startup")
 async def _on_startup():
     asyncio.create_task(_warm_ollama())
+    asyncio.create_task(_fullscreen_watch())
 
 
 async def speak_chunk(text: str, ws: WebSocket):
@@ -638,6 +672,7 @@ async def deliver_action(session_id: str, action: dict, ws: WebSocket):
 async def websocket_endpoint(ws: WebSocket):
     await ws.accept()
     session_id = str(id(ws))
+    clients.add(ws)
     print(f"[E.V.] İstemci bağlandı", flush=True)
 
     try:
@@ -701,6 +736,8 @@ async def websocket_endpoint(ws: WebSocket):
     except WebSocketDisconnect:
         conversations.pop(session_id, None)
         pending_actions.pop(session_id, None)
+    finally:
+        clients.discard(ws)
 
 
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "frontend")), name="static")

@@ -163,6 +163,57 @@ def power(kind: str) -> str:
         return _L(f"Olmadı: {e}", f"That didn't work: {e}")
 
 
+# --- Mouse control (clicks at the current cursor position; scroll) ----------
+_MOUSE = {
+    "left_down": 0x0002, "left_up": 0x0004,
+    "right_down": 0x0008, "right_up": 0x0010,
+    "wheel": 0x0800,
+}
+
+
+def mouse(kind: str, amount: int = 3) -> str:
+    """Basic mouse actions at the current cursor position."""
+    kind = (kind or "").strip().lower()
+    try:
+        if kind == "click":
+            ctypes.windll.user32.mouse_event(_MOUSE["left_down"], 0, 0, 0, 0)
+            ctypes.windll.user32.mouse_event(_MOUSE["left_up"], 0, 0, 0, 0)
+            return _L("Tıkladım.", "Clicked.")
+        if kind == "double":
+            for _ in range(2):
+                ctypes.windll.user32.mouse_event(_MOUSE["left_down"], 0, 0, 0, 0)
+                ctypes.windll.user32.mouse_event(_MOUSE["left_up"], 0, 0, 0, 0)
+            return _L("Çift tıkladım.", "Double-clicked.")
+        if kind == "right":
+            ctypes.windll.user32.mouse_event(_MOUSE["right_down"], 0, 0, 0, 0)
+            ctypes.windll.user32.mouse_event(_MOUSE["right_up"], 0, 0, 0, 0)
+            return _L("Sağ tıkladım.", "Right-clicked.")
+        if kind in ("scroll_down", "scroll_up"):
+            delta = 120 * amount * (1 if kind == "scroll_up" else -1)
+            ctypes.windll.user32.mouse_event(_MOUSE["wheel"], 0, 0, delta, 0)
+            return _L("Kaydırdım.", "Scrolled.")
+    except Exception as e:
+        return _L(f"Fare işlemi olmadı: {e}", f"Mouse action failed: {e}")
+    return _L("Bunu tam anlamadım.", "I didn't quite catch that.")
+
+
+def fullscreen_active() -> bool:
+    """True if a fullscreen app (game, fullscreen video, presentation) is running.
+
+    Uses SHQueryUserNotificationState — the same signal Windows uses to suppress
+    notifications — so it's robust across games, borderless video, etc.
+    """
+    try:
+        state = ctypes.c_int(0)
+        # S_OK == 0; state filled in. QUNS_BUSY=2, QUNS_RUNNING_D3D_FULL_SCREEN=3,
+        # QUNS_PRESENTATION_MODE=4 all mean "something is fullscreen / busy".
+        if ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state)) == 0:
+            return state.value in (2, 3, 4)
+    except Exception:
+        pass
+    return False
+
+
 def run_command(command: str) -> str:
     """Run an arbitrary shell command (destructive — confirm first)."""
     try:

@@ -56,6 +56,21 @@ _POWER_RULES = [
 _MEM_TRIGGER = r"\b(hatırla|hatirla|aklında tut|aklinda tut|not al|not et|unutma)\b"
 _FORGET_TRIGGER = r"\b(unut|unutabilirsin|sil bunu|hafızandan sil)\b"
 
+_MOUSE_RULES = [
+    (r"\bsağ (tıkla|tık|klik)", "right"),
+    (r"\bçift tıkla", "double"),
+    (r"\b(tıkla|tıklar mısın|klik yap)\b", "click"),
+    (r"\b(aşağı|aşşağı) (kaydır|in)\b", "scroll_down"),
+    (r"\b(yukarı|yukari) (kaydır|çık)\b", "scroll_up"),
+]
+_MOUSE_RULES_EN = [
+    (r"\bright[- ]?click", "right"),
+    (r"\bdouble[- ]?click", "double"),
+    (r"\bclick\b", "click"),
+    (r"\bscroll down\b", "scroll_down"),
+    (r"\bscroll up\b", "scroll_up"),
+]
+
 # ---- English rule sets (used when lang == "en") ----------------------------
 _MEDIA_RULES_EN = [
     (r"\b(mute|silence)\b", "volume_mute"),
@@ -104,6 +119,28 @@ def route(text: str, lang: str = "tr"):
         if fact and len(fact) > 2:
             return {"type": "REMEMBER", "payload": fact}
 
+    # --- YouTube by name ("youtube'da X aç/çal") ---
+    if "youtube" in t and re.search(r"\b(aç|açsana|çal|oynat|başlat|dinle)\b", t):
+        q = re.sub(r"\byoutube\w*\b", " ", t)
+        q = re.sub(r"\b(aç|açsana|açar|mısın|çal|oynat|başlat|dinle|göster|bana|lütfen|bir|şu|bu|videoyu|şarkıyı|şarkı|video)\b", " ", q)
+        q = re.sub(r"['’]\w*", "", q)
+        q = re.sub(r"\s+", " ", q).strip(" ,.'")
+        if q:
+            return {"type": "YOUTUBE", "payload": q}
+
+    # --- Mouse (clicks / scroll at current cursor) ---
+    # A *targeted* click ("şu videoya tıkla", "şuna tıkla") means a specific
+    # on-screen element → needs vision we don't have. Only bare clicks (at the
+    # cursor) route here; targeted ones fall through so the LLM refuses honestly.
+    targeted_click = re.search(
+        r"\b\w+(ya|ye|na|ne)\s+(sağ\s+|sol\s+|çift\s+)?(tıkla|tık|klik)"
+        r"|\b(şuna|buna|ona|oraya|buraya|şuraya)\b", t)
+    for pat, kind in _MOUSE_RULES:
+        if re.search(pat, t):
+            if kind in ("click", "double", "right") and targeted_click:
+                break  # targeted click → let the LLM say it can't
+            return {"type": "MOUSE", "payload": kind}
+
     # --- Media / volume (check before app-open, since "sesi aç" holds "aç") ---
     for pat, kind in _MEDIA_RULES:
         if re.search(pat, t):
@@ -146,6 +183,20 @@ def _route_en(t: str):
         fact = (m.group(1).strip(" :,.") if m else "")
         if fact and len(fact) > 2:
             return {"type": "REMEMBER", "payload": fact}
+
+    if "youtube" in t and re.search(r"\b(play|open|put on|search)\b", t):
+        q = re.sub(r"\byoutube\b", " ", t)
+        q = re.sub(r"\b(play|open|put on|search|for|on|the|a|please|me|video|song)\b", " ", q)
+        q = re.sub(r"\s+", " ", q).strip(" ,.")
+        if q:
+            return {"type": "YOUTUBE", "payload": q}
+
+    targeted_click_en = re.search(r"\bclick\s+(on\s+)?(the|that|this|a|an)?\s*\w+", t)
+    for pat, kind in _MOUSE_RULES_EN:
+        if re.search(pat, t):
+            if kind == "click" and targeted_click_en:
+                break  # "click that video" → needs vision → let the LLM refuse
+            return {"type": "MOUSE", "payload": kind}
 
     for pat, kind in _MEDIA_RULES_EN:
         if re.search(pat, t):

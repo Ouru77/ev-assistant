@@ -209,6 +209,8 @@ function connect() {
             if (data.audio && data.audio.length > 0) queueAudio(data.audio);
             else if (data.text) speakBrowser(data.text);
             else resumeListening();
+        } else if (data.type === 'fullscreen') {
+            handleFullscreen(data.active);
         } else if (data.type === 'user_text') {
             addTranscript('user', data.text);
         } else if (data.type === 'idle') {
@@ -222,6 +224,23 @@ function connect() {
         status.textContent = 'Bağlantı koptu...';
         setTimeout(connect, 3000);
     };
+}
+
+// Auto-tray E.V. while a fullscreen app (game / video) is running, restore after.
+let hiddenByFullscreen = false;
+function handleFullscreen(active) {
+    if (!isElectron || !window.electronAPI) return;
+    if (active) {
+        // Don't fight the fullscreen app: stop listening and drop to the tray.
+        if (listeningEnabled) { listeningEnabled = false; setOrbState('muted'); }
+        window.electronAPI.hide();
+        hiddenByFullscreen = true;
+        logSys('Tam ekran algılandı — E.V. tepsiye çekildi.');
+    } else if (hiddenByFullscreen) {
+        window.electronAPI.show();
+        hiddenByFullscreen = false;
+        logSys('Tam ekran bitti — E.V. geri döndü.');
+    }
 }
 
 function resumeListening() {

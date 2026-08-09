@@ -126,6 +126,32 @@ async def fetch_news() -> str:
         pass  # Keep page open so user can see it
 
 
+async def youtube_open(query: str) -> dict:
+    """Open the first YouTube video for `query` directly in the default browser.
+
+    Fetches the results HTML and pulls the first videoId (no browser automation,
+    fast + reliable), then opens the watch URL so it actually plays. Falls back
+    to the search page if parsing fails.
+    """
+    from urllib.parse import quote
+    q = (query or "").strip()
+    if not q:
+        return {"error": "boş sorgu"}
+    search_url = f"https://www.youtube.com/results?search_query={quote(q)}"
+    try:
+        async with httpx.AsyncClient(timeout=10, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+            "Accept-Language": "tr,en;q=0.8",
+        }) as c:
+            r = await c.get(search_url)
+        m = re.search(r'"videoId":"([\w-]{11})"', r.text)
+        target = f"https://www.youtube.com/watch?v={m.group(1)}" if m else search_url
+    except Exception:
+        target = search_url
+    webbrowser.open(target)
+    return {"query": q, "url": target, "played": target != search_url}
+
+
 async def open_url(url: str):
     """Open URL in user's default browser (non-blocking)."""
     import asyncio
