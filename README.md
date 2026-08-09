@@ -1,8 +1,8 @@
-# E.V. — Your own local voice assistant 🛠️🎙️
+# E.V. 🕸️ — Peter Parker's homemade AI, running on *your* PC
 
 **by [Ouru77](https://github.com/Ouru77)** · MIT License · Türkçe & English
 
-> *A private, offline-first desktop voice assistant with a cyber "PC-dashboard" HUD — inspired by Peter Parker's homemade AI **E.V.** in Spider-Man: Brand New Day.*
+> *A private, offline-first desktop voice assistant with a cyber "PC-dashboard" HUD — inspired by **E.V.**, the AI Peter Parker builds in Spider-Man: Brand New Day. It talks, controls your PC, and remembers you — all running locally.*
 
 E.V. runs **entirely on your own computer**. You talk (or type), it thinks, and it answers out loud. No cloud account required, no data leaving your machine by default. The look isn't flashy Stark holograms — it's a **grid-based cyber terminal**, in the spirit of a "budget genius" workshop.
 
@@ -19,12 +19,29 @@ Works in **English or Turkish** out of the box. It can also **control your PC** 
 - 🔊 **Speaks back** — your browser's built-in voice (free) or **ElevenLabs** for a natural voice.
 - 🖥️ **Cyber HUD** — an Electron desktop app: a compact corner **orb** or a full **dashboard** (system stats, clock, weather, live audio waveform, event log, terminal input).
 - 🎛️ **Live audio core** — a circular visualizer that reacts to **your mic** while listening and to **E.V.'s voice** while speaking.
-- 💻 **PC control** — "open Spotify", "turn it up", "next track", "lock the screen", "close Chrome". Destructive actions (closing apps, shutdown, running commands) **ask for confirmation first**.
+- 💻 **PC control** — "open Spotify", "turn it up", "next track", "lock the screen", "close Chrome", plus **mouse** clicks and scrolling. Destructive actions (closing apps, shutdown, running commands) **ask for confirmation first**.
+- 📺 **Play by name** — "play *Enter Sandman* on YouTube" → E.V. finds and opens the video in your browser.
+- 🫥 **Auto-tray on fullscreen** — start a game or fullscreen video and E.V. quietly drops to the tray, then comes back when you're done.
 - 🧠 **Long-term memory** — "remember that my favorite color is green" → E.V. recalls it in future sessions. "forget my coffee preference" clears it.
+- 🙂 **Honest** — if you ask for something it can't do, it says so instead of pretending — and suggests an alternative.
 - 💬 **Conversation mode** — once you enable listening it stays in the conversation, then auto-mutes after a stretch of silence (safe while gaming).
-- 🌐 **Web & screen** — web search / opening pages (Playwright) and optional screen description.
-- 🔒 **Private** — with the default setup, nothing goes to the cloud; everything is local.
+- 👁️ **Screen vision** — "what do you see on my screen?" — describes what's open. *(Requires a Claude API key — see below.)*
+- 🌐 **Web** — web search and opening pages (Playwright).
+- 🔒 **Private** — with the default setup, nothing goes to the cloud; everything is local, and the server binds to `127.0.0.1` only.
 - 🔕 **Safe listening** — muted by default; toggle with `Ctrl+Space` so it never listens by accident.
+
+### 🔑 What needs an API key?
+
+E.V. is **fully functional for free** — talking, the local brain, PC control, memory, YouTube, and the HUD all work with **no keys** (Ollama + Whisper + browser voice). Two things are optional upgrades that **do** need a key:
+
+| Feature | Works out of the box? | Needs a key |
+|---|---|---|
+| Voice chat, PC control, memory, YouTube, HUD | ✅ Free, no key | — |
+| **Screen vision** ("what's on my screen?") | ❌ | **Claude API key** (`anthropic`, used for image understanding) |
+| Natural ElevenLabs voice (instead of browser voice) | ❌ (browser voice is the free default) | ElevenLabs key |
+| Claude as the main brain (instead of local Ollama) | ❌ (Ollama is the free default) | Claude API key |
+
+> Get a Claude key at [console.anthropic.com](https://console.anthropic.com); set `llm_provider: "anthropic"` for the brain, and a key is also what powers **screen vision**.
 
 ## 🧩 Architecture
 
@@ -151,10 +168,17 @@ E.V., tamamen **kendi bilgisayarında** çalışan, gizliliğe önem veren bir s
 - 🧠 **Yerel beyin** — **Ollama** üzerinde yerel LLM (varsayılan `gemma2:9b`). İstersen Claude'a bağlanır.
 - 🔊 **Sesli cevap** — tarayıcının yerleşik sesi (ücretsiz) ya da **ElevenLabs**.
 - 🖥️ **Siber HUD** — Electron uygulaması: köşede kompakt **orb**, tam ekranda **dashboard**.
-- 💻 **PC kontrolü** — "spotify aç", "sesi aç", "sonraki şarkı", "ekranı kilitle", "chrome'u kapat". Yıkıcı işlemler (kapatma, güç, komut) **önce onay ister**.
+- 💻 **PC kontrolü** — "spotify aç", "sesi aç", "sonraki şarkı", "ekranı kilitle", "chrome'u kapat", ayrıca **fare** tıkla/kaydır. Yıkıcı işlemler (kapatma, güç, komut) **önce onay ister**.
+- 📺 **İsimle aç** — "YouTube'da Enter Sandman aç" → videoyu bulup tarayıcında açar.
+- 🫥 **Tam ekranda otomatik tray** — oyun/tam ekran video açınca E.V. sessizce tepsiye çekilir, çıkınca döner.
 - 🧠 **Kalıcı hafıza** — "en sevdiğim rengi hatırla, yeşil" → sonraki oturumlarda hatırlar. "kahve tercihimi unut" ile siler.
+- 🙂 **Dürüst** — yapamayacağı bir şeyi "yapıyorum" diye uydurmaz; dürüstçe söyler ve varsa alternatif önerir.
 - 💬 **Sohbet modu** — dinlemeyi açınca sohbette kalır, bir süre sessizlikte otomatik susar (oyun sırasında güvenli).
+- 👁️ **Ekranı görme** — "ekranda ne görüyorsun?" — açık olanları betimler. *(Claude API anahtarı gerekir.)*
+- 🔒 **Gizli** — varsayılanda hiçbir şey buluta gitmez; sunucu yalnızca `127.0.0.1`'e bağlanır.
 - 🔕 **Güvenli dinleme** — varsayılan sessiz; `Ctrl+Space` ile açılır.
+
+> 🔑 **Anahtar gerektirenler:** Konuşma, PC kontrolü, hafıza, YouTube ve HUD **tamamen ücretsiz** çalışır (Ollama + Whisper + tarayıcı sesi, anahtar gerekmez). Yalnızca **ekranı görme** için Claude anahtarı, doğal **ElevenLabs sesi** için ElevenLabs anahtarı, beyin olarak **Claude** için Claude anahtarı gerekir.
 
 ## 🚀 Kurulum
 
