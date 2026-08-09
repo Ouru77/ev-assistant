@@ -5,12 +5,13 @@ Turkish, runs on CPU, fully offline and free. Models are cached on the A: drive.
 import io
 
 _model = None
-_cfg = {"model": "small", "dir": None}
+_cfg = {"model": "small", "dir": None, "language": "tr"}
 
 
-def configure(model_name: str, download_dir: str):
+def configure(model_name: str, download_dir: str, language: str = "tr"):
     _cfg["model"] = model_name or "small"
     _cfg["dir"] = download_dir
+    _cfg["language"] = language or "tr"
 
 
 def _get_model():
@@ -35,7 +36,7 @@ def transcribe(audio_bytes: bytes) -> str:
     model = _get_model()
     segments, _info = model.transcribe(
         io.BytesIO(audio_bytes),
-        language="tr",
+        language=_cfg["language"],
         beam_size=5,
         vad_filter=True,
         vad_parameters={"min_silence_duration_ms": 500},

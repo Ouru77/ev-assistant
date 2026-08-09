@@ -36,7 +36,57 @@ ELEVENLABS_VOICE_ID = config.get("elevenlabs_voice_id", "rDmv3mOhK6TnhYWckFaD")
 USER_NAME = config.get("user_name", "Oğul")
 USER_ADDRESS = config.get("user_address", "Oğul")
 CITY = config.get("city", "İstanbul")
+LANGUAGE = config.get("language", "tr").lower()
 TASKS_FILE = config.get("obsidian_inbox_path", "")
+PC_CONTROL = bool(config.get("pc_control", True))
+CONVERSATION_MODE = bool(config.get("conversation_mode", True))
+
+# --- Long-term memory: short facts E.V. remembers about the user ------------
+MEMORY_PATH = os.path.join(os.path.dirname(__file__), "memory.json")
+
+
+def load_memories() -> list:
+    try:
+        with open(MEMORY_PATH, "r", encoding="utf-8") as f:
+            return json.load(f).get("facts", [])
+    except Exception:
+        return []
+
+
+def save_memories(facts: list):
+    try:
+        with open(MEMORY_PATH, "w", encoding="utf-8") as f:
+            json.dump({"facts": facts}, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[E.V.] Hafıza yazılamadı: {e}", flush=True)
+
+
+def add_memory(fact: str) -> str:
+    fact = (fact or "").strip().rstrip(".")
+    if not fact:
+        return ""
+    facts = load_memories()
+    if any(fact.lower() == f.lower() for f in facts):
+        return fact
+    facts.append(fact)
+    save_memories(facts[-50:])  # cap so the prompt stays small
+    return fact
+
+
+def forget_memory(query: str) -> bool:
+    query = (query or "").strip().lower()
+    facts = load_memories()
+    if query in ("hepsi", "her şey", "hepsini", "all"):
+        save_memories([])
+        return True
+    kept = [f for f in facts if query not in f.lower()]
+    if len(kept) != len(facts):
+        save_memories(kept)
+        return True
+    return False
+
+
+MEMORIES = load_memories()
 
 # Anthropic client is optional — only created if a real key is present.
 ai = None
@@ -66,7 +116,7 @@ async def llm_chat(system: str, messages: list, max_tokens: int = 400) -> str:
 
     # Default: Anthropic
     if ai is None:
-        return "Anthropic anahtarı yok, Oğul. Ya bir anahtar gir ya da Ollama'ya geç."
+        return S("no_anthropic")
     response = await ai.messages.create(
         model="claude-haiku-4-5-20251001",
         max_tokens=max_tokens,
@@ -75,14 +125,54 @@ async def llm_chat(system: str, messages: list, max_tokens: int = 400) -> str:
     )
     return response.content[0].text
 
+
+async def llm_stream(system: str, messages: list, max_tokens: int = 400):
+    """Yield incremental text chunks from the LLM (Ollama streaming)."""
+    if LLM_PROVIDER != "ollama":
+        # No token streaming for Anthropic here — emit the whole reply as one chunk.
+        yield await llm_chat(system, messages, max_tokens)
+        return
+    payload = {
+        "model": OLLAMA_MODEL,
+        "messages": [{"role": "system", "content": system}] + messages,
+        "stream": True,
+        "keep_alive": "30m",
+        "options": {"num_predict": max_tokens, "temperature": 0.7},
+    }
+    async with http.stream("POST", f"{OLLAMA_URL}/api/chat", json=payload) as resp:
+        resp.raise_for_status()
+        async for line in resp.aiter_lines():
+            if not line.strip():
+                continue
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            piece = obj.get("message", {}).get("content", "")
+            if piece:
+                yield piece
+            if obj.get("done"):
+                break
+
 app = FastAPI()
 
 import browser_tools
 import screen_capture
 import whisper_stt
+import pc_control
+import command_router
+import strings
+
+pc_control.set_language(LANGUAGE)
+
+
+def S(key, **kw):
+    """Shorthand for a localized short string with USER_ADDRESS as default name."""
+    kw.setdefault("name", USER_ADDRESS)
+    return strings.s(key, LANGUAGE, **kw)
 
 if STT_PROVIDER == "whisper":
-    whisper_stt.configure(WHISPER_MODEL, WHISPER_DIR or None)
+    whisper_stt.configure(WHISPER_MODEL, WHISPER_DIR or None, LANGUAGE)
 
 
 WMO_TR = {
@@ -150,56 +240,28 @@ refresh_data()
 ACTION_PATTERN = re.compile(r'\[ACTION:(\w+)\]\s*(.*?)$', re.DOTALL | re.MULTILINE)
 
 conversations: dict[str, list] = {}
+pending_actions: dict[str, dict] = {}  # destructive actions awaiting a spoken "evet"
 
 def build_system_prompt():
-    weather_block = ""
-    if WEATHER_INFO:
-        w = WEATHER_INFO
-        weather_block = f"\n{CITY} havası: {w['temp']}°C, hissedilen {w['feels_like']}°C, {w['description']}"
-
-    task_block = ""
-    if TASKS_INFO:
-        task_block = f"\nAçık görevler ({len(TASKS_INFO)}): " + ", ".join(TASKS_INFO[:5])
-
-    return f"""Sen E.V.'sin — {USER_NAME}'un kendi yaptığı yapay zeka asistanı. Onun atölyesindeki en yakın yardımcısısın. Sakin, zeki, mütevazı; gösterişsiz, DIY ruhlu bir dostsun. Telaşlanmaz, abartmazsın; sıcak ama sade konuşursun.
-
-MUTLAK KURALLAR (bunları ihlal etme):
-1. SADECE TÜRKÇE yaz. İngilizce, Çince, Arapça ya da başka hiçbir dilden tek kelime, tek harf kullanma. Türkçe alfabe dışında karakter (örn. Çince/Japonca harfler) KESİNLİKLE yasak.
-2. Kullanıcıya HER ZAMAN senli-benli, "sen" diye hitap et. "-sın/-sin", "yaparsın", "ister misin" gibi. ASLA "siz", "-siniz", "yapabilirsiniz", "efendim", "beyefendi" kullanma. Ona ismiyle "{USER_ADDRESS}" diye seslen.
-3. BİLGİ UYDURMA. Aşağıdaki "GÜNCEL VERİLER" bölümünde sana açıkça verilmeyen hiçbir şeyi (hava durumu, sıcaklık, görevler, tarih, haber) söyleme. Emin değilsen "bilmiyorum" de ya da o konuya hiç girme. Var olmayan hava durumu, derece vb. asla söyleme.
-4. Cevapların KISA olsun — en fazla 2-3 cümle. Her yazdığın sesli okunacak.
-5. Köşeli parantez içinde sahne yönergesi/etiket ([sakin] gibi) yazma. Tonun kelime seçiminden gelsin.
-
-AKSİYONLAR: Kullanıcı SENDEN AÇIKÇA bir şey yapmanı isterse (bir şey aramak, bir site açmak, ekranına bakmak, haber getirmek), o zaman ilgili aksiyonu cevabının EN SONUNA yaz. Sıradan sohbette aksiyon KULLANMA — sadece cevap ver.
-[ACTION:SEARCH] arama terimi — internette ara
-[ACTION:OPEN] url — tarayıcıda site aç
-[ACTION:SCREEN] — sadece "ekrana bak / ne görüyorsun" dendiğinde. O zaman SADECE bu satırı yaz, önüne hiç metin yazma.
-[ACTION:NEWS] — sadece haber/gündem sorulduğunda. Önüne kısa bir cümle yaz.
-
-Oturum yeni başladığında ya da "Selam E.V." dendiğinde: kısa, doğal bir Türkçe selam ver. Selama tam olarak "{{greeting}}" ile başla ve ona doğrudan seslen (örnek: "{{greeting}} Oğul, hazırım — bugün ne yapıyoruz?"). "İyi öğleden sonra" gibi çeviri kokan ifadeler ASLA kullanma. Ondan üçüncü şahıs gibi ("Oğul'a yardımcı") değil, ikinci şahıs olarak ("sana yardımcı") bahset. Aşağıda hava verisi VARSA tek cümleyle söyle; YOKSA havadan HİÇ bahsetme.
-
-=== GÜNCEL VERİLER ==={weather_block if weather_block else " (şu an hava verisi yok — havadan bahsetme)"}{task_block if task_block else " (açık görev yok)"}
-==="""
+    wb = strings.weather_block(LANGUAGE, CITY, WEATHER_INFO) if WEATHER_INFO else ""
+    tb = strings.task_block(LANGUAGE, TASKS_INFO) if TASKS_INFO else ""
+    mb = strings.memory_block(LANGUAGE, USER_NAME, MEMORIES) if MEMORIES else ""
+    pb = strings.pc_block(LANGUAGE) if PC_CONTROL else ""
+    return strings.system_prompt(LANGUAGE, USER_NAME, USER_ADDRESS, CITY, wb, tb, mb, pb)
 
 
-def turkish_greeting():
-    h = time.localtime().tm_hour
-    if 5 <= h < 11:
-        return "Günaydın"
-    if 11 <= h < 18:
-        return "İyi günler"
-    if 18 <= h < 22:
-        return "İyi akşamlar"
-    return "İyi geceler"
+def greeting_prefix():
+    return strings.greeting_prefix(LANGUAGE, time.localtime().tm_hour)
 
 
 def build_greeting():
-    """Deterministic, clean Turkish greeting spoken on session start."""
-    parts = [f"{turkish_greeting()} {USER_NAME}."]
+    """Deterministic, clean greeting spoken on session start."""
+    parts = [f"{greeting_prefix()} {USER_NAME}."]
     if WEATHER_INFO:
         w = WEATHER_INFO
-        parts.append(f"{CITY}'de hava {w['temp']} derece, {w['description'].lower()}.")
-    parts.append("Hazırım, bugün ne yapıyoruz?")
+        parts.append(strings.s("weather_line", LANGUAGE, city=CITY, temp=w["temp"],
+                               desc=w["description"].lower()))
+    parts.append(strings.s("greet_ready", LANGUAGE))
     return " ".join(parts)
 
 
@@ -207,7 +269,7 @@ def get_system_prompt():
     return (
         build_system_prompt()
         .replace("{time}", time.strftime("%H:%M"))
-        .replace("{greeting}", turkish_greeting())
+        .replace("{greeting}", greeting_prefix())
     )
 
 
@@ -228,8 +290,8 @@ async def synthesize_speech(text: str) -> bytes:
     if TTS_PROVIDER == "browser":
         return b""
 
-    # Say the name "E.V." as "İvi" (ee-vee), not the Turkish word "ev".
-    text = re.sub(r"E\.V\.?", "İvi", text)
+    # Say the name "E.V." naturally: "İvi" (ee-vee) in Turkish, "Evie" in English.
+    text = re.sub(r"E\.V\.?", "İvi" if LANGUAGE != "en" else "Evie", text)
 
     # Split long text into chunks at sentence boundaries to avoid ElevenLabs cutoff
     chunks = []
@@ -294,13 +356,112 @@ async def execute_action(action: dict) -> str:
     elif t == "SCREEN":
         if ai is not None:
             return await screen_capture.describe_screen(ai)
-        return "Şu an ekranı göremiyorum, Oğul — görme için ayrı bir görsel model gerekiyor, onu sonra ekleriz."
+        return S("no_screen")
 
     elif t == "NEWS":
         result = await browser_tools.fetch_news()
         return result
 
+    elif t == "REMEMBER":
+        saved = add_memory(p)
+        global MEMORIES
+        MEMORIES = load_memories()
+        return f"__SPOKEN__{S('mem_saved')}" if saved else ""
+
+    elif t == "FORGET":
+        ok = forget_memory(p)
+        MEMORIES = load_memories()
+        return "__SPOKEN__" + (S("mem_forgot") if ok else S("mem_none"))
+
+    elif t == "APP":
+        return "__SPOKEN__" + await asyncio.to_thread(pc_control.open_app, p)
+
+    elif t == "MEDIA":
+        return "__SPOKEN__" + await asyncio.to_thread(pc_control.media, p)
+
+    elif t == "CLOSE":
+        return "__SPOKEN__" + await asyncio.to_thread(pc_control.close_app, p)
+
+    elif t == "POWER":
+        return "__SPOKEN__" + await asyncio.to_thread(pc_control.power, p)
+
+    elif t == "CMD":
+        return await asyncio.to_thread(pc_control.run_command, p)
+
     return ""
+
+
+# Actions that change the machine → require a spoken yes before running.
+DESTRUCTIVE_ACTIONS = {"CLOSE", "POWER", "CMD"}
+
+
+def confirm_prompt(action: dict) -> str:
+    """A short yes/no question E.V. asks before a destructive action."""
+    t, p = action["type"], action["payload"]
+    if t == "CLOSE":
+        return S("confirm_close", app=p)
+    if t == "POWER":
+        verb = strings.power_confirm(p, LANGUAGE)
+        return f"{verb}, {USER_ADDRESS}?" if LANGUAGE == "en" else f"{verb} mı, {USER_ADDRESS}?"
+    if t == "CMD":
+        return S("confirm_cmd", cmd=p)
+    return S("confirm_generic")
+
+
+async def _warm_ollama():
+    """Load the model into VRAM at startup so the user's first reply isn't cold."""
+    if LLM_PROVIDER != "ollama":
+        return
+    try:
+        await http.post(f"{OLLAMA_URL}/api/chat", json={
+            "model": OLLAMA_MODEL, "stream": False, "keep_alive": "30m",
+            "messages": [{"role": "user", "content": "merhaba"}],
+            "options": {"num_predict": 1},
+        }, timeout=180)
+        print("[E.V.] Model ısıtıldı (VRAM).", flush=True)
+    except Exception as e:
+        print(f"[E.V.] Isıtma hatası: {e}", flush=True)
+
+
+@app.on_event("startup")
+async def _on_startup():
+    asyncio.create_task(_warm_ollama())
+
+
+async def speak_chunk(text: str, ws: WebSocket):
+    """Synthesize + stream one spoken sentence to the client as a response chunk."""
+    text = (text or "").strip()
+    if not text:
+        return
+    audio = await synthesize_speech(text)
+    print(f"  E.V. »: {text[:60]}", flush=True)
+    await ws.send_json({
+        "type": "response_chunk",
+        "text": text,
+        "audio": base64.b64encode(audio).decode("utf-8") if audio else "",
+    })
+
+
+_YES = {"evet", "olur", "tamam", "yap", "tabii", "tabi", "aynen", "onayla",
+        "kesinlikle", "elbette", "yapabilirsin", "devam", "hı hı", "hıhı",
+        "yes", "yeah", "yep", "sure", "ok", "okay", "go ahead", "do it"}
+_NO = {"hayır", "hayir", "yok", "dur", "vazgeç", "vazgec", "iptal", "istemiyorum",
+       "gerek yok", "boşver", "bosver", "olmaz",
+       "no", "nope", "don't", "dont", "cancel", "stop", "never mind", "nevermind"}
+
+
+def _matches(text: str, words: set) -> bool:
+    t = " " + re.sub(r"[^\wçğıöşü ]", " ", (text or "").lower()) + " "
+    return any(f" {w} " in t for w in words)
+
+
+async def _speak_response(session_id: str, text: str, ws: WebSocket):
+    audio = await synthesize_speech(text)
+    conversations.setdefault(session_id, []).append({"role": "assistant", "content": text})
+    await ws.send_json({
+        "type": "response", "text": text,
+        "audio": base64.b64encode(audio).decode("utf-8") if audio else "",
+    })
 
 
 async def process_message(session_id: str, user_text: str, ws: WebSocket):
@@ -308,17 +469,29 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     if session_id not in conversations:
         conversations[session_id] = []
 
+    # If a destructive action is awaiting confirmation, read this reply as yes/no.
+    if session_id in pending_actions:
+        if _matches(user_text, _YES):
+            action = pending_actions.pop(session_id)
+            await deliver_action(session_id, action, ws)
+            return
+        if _matches(user_text, _NO):
+            pending_actions.pop(session_id, None)
+            await _speak_response(session_id, S("canceled"), ws)
+            return
+        pending_actions.pop(session_id, None)  # unrelated reply → drop the pending action
+
     # Refresh weather + tasks on greeting/activation
     lower_text = user_text.lower()
-    if "selam" in lower_text or "aktif" in lower_text or "activate" in lower_text:
+    is_greeting = any(w in lower_text for w in
+                      ("selam", "aktif", "activate", "hello", "hi ", "hey", "merhaba"))
+    if is_greeting:
         refresh_data()
 
     conversations[session_id].append({"role": "user", "content": user_text})
 
     # First activation of a fresh session → deterministic clean greeting (no LLM).
-    if len(conversations[session_id]) == 1 and (
-        "selam" in lower_text or "aktif" in lower_text or "activate" in lower_text
-    ):
+    if len(conversations[session_id]) == 1 and is_greeting:
         greeting = build_greeting()
         audio = await synthesize_speech(greeting)
         conversations[session_id].append({"role": "assistant", "content": greeting})
@@ -330,68 +503,132 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
         })
         return
 
+    # Deterministic PC / memory command routing — runs BEFORE the LLM so explicit
+    # commands work reliably even when a small local model won't emit action tags.
+    # Memory (REMEMBER/FORGET) always routes; PC actions only when pc_control is on.
+    routed = command_router.route(user_text, LANGUAGE)
+    if routed and (PC_CONTROL or routed["type"] in ("REMEMBER", "FORGET")):
+        print(f"  Routed: {routed['type']} -> {routed['payload'][:80]}", flush=True)
+        if routed["type"] in DESTRUCTIVE_ACTIONS:
+            pending_actions[session_id] = routed
+            question = confirm_prompt(routed)
+            audio = await synthesize_speech(question)
+            await ws.send_json({
+                "type": "confirm", "text": question,
+                "audio": base64.b64encode(audio).decode("utf-8") if audio else "",
+            })
+            return
+        await deliver_action(session_id, routed, ws)
+        return
+
     history = conversations[session_id][-16:]
 
-    # LLM call
-    reply = await llm_chat(get_system_prompt(), history, max_tokens=400)
-    print(f"  LLM raw: {reply[:200]}", flush=True)
-    spoken_text, action = extract_action(reply)
+    if TTS_PROVIDER == "browser":
+        # Browser speech reads the whole reply — streaming brings no benefit.
+        full = await llm_chat(get_system_prompt(), history, max_tokens=400)
+        spoken_text, action = extract_action(full)
+        if spoken_text:
+            conversations[session_id].append({"role": "assistant", "content": spoken_text})
+            await ws.send_json({"type": "response", "text": spoken_text, "audio": ""})
+    else:
+        # Stream the reply and speak sentence-by-sentence for lower latency.
+        full, buf, stop_speaking = "", "", False
+        try:
+            async for piece in llm_stream(get_system_prompt(), history, 400):
+                full += piece
+                if stop_speaking:
+                    continue
+                buf += piece
+                if "[ACTION" in buf:  # action tag begins — speak text before it, then stop
+                    await speak_chunk(buf[:buf.find("[ACTION")], ws)
+                    buf, stop_speaking = "", True
+                    continue
+                segs = re.split(r'(?<=[.!?…])\s+', buf)  # flush completed sentences
+                if len(segs) > 1:
+                    for seg in segs[:-1]:
+                        await speak_chunk(seg, ws)
+                    buf = segs[-1]
+        except Exception as e:
+            print(f"  Stream hatası: {e}", flush=True)
+        if not stop_speaking:
+            await speak_chunk(buf, ws)
+        spoken_text, action = extract_action(full)
+        if spoken_text:
+            conversations[session_id].append({"role": "assistant", "content": spoken_text})
+        await ws.send_json({"type": "response_done"})
 
-    # Speak the main response immediately
-    if spoken_text:
-        audio = await synthesize_speech(spoken_text)
-        print(f"  E.V.: {spoken_text[:80]}", flush=True)
-        print(f"  Audio bytes: {len(audio)}", flush=True)
-        conversations[session_id].append({"role": "assistant", "content": spoken_text})
-        await ws.send_json({
-            "type": "response",
-            "text": spoken_text,
-            "audio": base64.b64encode(audio).decode("utf-8") if audio else "",
-        })
+    print(f"  LLM raw: {full[:200]}", flush=True)
 
     # Execute action if any
     if action:
         print(f"  Action: {action['type']} -> {action['payload'][:100]}", flush=True)
 
-        # Quick voice feedback for SCREEN so user knows E.V. is working
-        if action["type"] == "SCREEN":
-            hint = "Ekranına bir bakayım."
-            hint_audio = await synthesize_speech(hint)
+        # Destructive actions (close app / power / shell) → ask first, run on "evet".
+        if action["type"] in DESTRUCTIVE_ACTIONS:
+            pending_actions[session_id] = action
+            question = confirm_prompt(action)
+            audio = await synthesize_speech(question)
             await ws.send_json({
-                "type": "response",
-                "text": hint,
-                "audio": base64.b64encode(hint_audio).decode("utf-8") if hint_audio else "",
+                "type": "confirm",
+                "text": question,
+                "audio": base64.b64encode(audio).decode("utf-8") if audio else "",
             })
-
-        try:
-            action_result = await execute_action(action)
-            print(f"  Result: {action_result}", flush=True)
-        except Exception as e:
-            print(f"  Action error: {e}", flush=True)
-            action_result = f"Fehler: {e}"
-
-        if action["type"] == "OPEN":
-            # Just opened browser, nothing to summarize
             return
 
-        # SEARCH, BROWSE, SCREEN — summarize results
-        if action_result and "başarısız" not in action_result and "ulaşılamadı" not in action_result:
-            summary = await llm_chat(
-                f"Sen E.V.'sin. Aşağıdaki bilgileri KISA şekilde Türkçe özetle, en fazla 3 cümle, sakin ve sade E.V. tarzında. Kullanıcıya '{USER_ADDRESS}' diye ismiyle hitap et. Köşeli parantez içinde etiket YOK. ACTION etiketi YOK.",
-                [{"role": "user", "content": f"Şunu özetle:\n\n{action_result}"}],
-                max_tokens=250,
-            )
-            summary, _ = extract_action(summary)
-        else:
-            summary = f"Maalesef bu işe yaramadı, {USER_ADDRESS}."
+        await deliver_action(session_id, action, ws)
 
-        audio2 = await synthesize_speech(summary)
-        conversations[session_id].append({"role": "assistant", "content": summary})
+
+async def deliver_action(session_id: str, action: dict, ws: WebSocket):
+    """Run a (already-approved / non-destructive) action and speak the result."""
+    # Quick voice feedback for SCREEN so the user knows E.V. is working.
+    if action["type"] == "SCREEN":
+        hint = S("screen_hint")
+        hint_audio = await synthesize_speech(hint)
         await ws.send_json({
             "type": "response",
-            "text": summary,
-            "audio": base64.b64encode(audio2).decode("utf-8") if audio2 else "",
+            "text": hint,
+            "audio": base64.b64encode(hint_audio).decode("utf-8") if hint_audio else "",
         })
+
+    try:
+        action_result = await execute_action(action)
+        print(f"  Result: {str(action_result)[:200]}", flush=True)
+    except Exception as e:
+        print(f"  Action error: {e}", flush=True)
+        action_result = f"__SPOKEN__{S('action_problem')}"
+
+    if action["type"] == "OPEN":
+        return  # just opened a browser tab, nothing to summarize
+
+    if not action_result:
+        return  # silent action (e.g. duplicate memory)
+
+    # __SPOKEN__ prefix → speak the line verbatim, don't summarize (PC/memory acks).
+    if isinstance(action_result, str) and action_result.startswith("__SPOKEN__"):
+        summary = action_result[len("__SPOKEN__"):].strip()
+    elif "başarısız" not in action_result and "ulaşılamadı" not in action_result:
+        if LANGUAGE == "en":
+            sys_sum = (f"You are E.V. Summarize the info below briefly in English, at most 3 "
+                       f"sentences, calm and plain E.V. style. Address the user by name as "
+                       f"'{USER_ADDRESS}'. NO brackets/tags. NO ACTION tag.")
+            user_sum = f"Summarize this:\n\n{action_result}"
+        else:
+            sys_sum = (f"Sen E.V.'sin. Aşağıdaki bilgileri KISA şekilde Türkçe özetle, en fazla 3 "
+                       f"cümle, sakin ve sade E.V. tarzında. Kullanıcıya '{USER_ADDRESS}' diye "
+                       f"ismiyle hitap et. Köşeli parantez içinde etiket YOK. ACTION etiketi YOK.")
+            user_sum = f"Şunu özetle:\n\n{action_result}"
+        summary = await llm_chat(sys_sum, [{"role": "user", "content": user_sum}], max_tokens=250)
+        summary, _ = extract_action(summary)
+    else:
+        summary = S("action_failed")
+
+    audio2 = await synthesize_speech(summary)
+    conversations[session_id].append({"role": "assistant", "content": summary})
+    await ws.send_json({
+        "type": "response",
+        "text": summary,
+        "audio": base64.b64encode(audio2).decode("utf-8") if audio2 else "",
+    })
 
 
 @app.websocket("/ws")
@@ -403,34 +640,64 @@ async def websocket_endpoint(ws: WebSocket):
     try:
         while True:
             data = await ws.receive_json()
-
-            # Whisper STT path: client recorded audio and sent it as base64.
-            if data.get("audio"):
-                try:
-                    audio_bytes = base64.b64decode(data["audio"])
-                    user_text = await asyncio.to_thread(whisper_stt.transcribe, audio_bytes)
-                except Exception as e:
-                    print(f"  STT hata: {e}", flush=True)
-                    await ws.send_json({"type": "idle"})
+            # Any failure while handling ONE message must not drop the connection.
+            try:
+                # Confirmation reply for a pending destructive action.
+                if "confirm" in data:
+                    pending = pending_actions.pop(session_id, None)
+                    if data.get("confirm") and pending:
+                        await deliver_action(session_id, pending, ws)
+                    else:
+                        cancel = f"Tamam {USER_ADDRESS}, vazgeçtim."
+                        caudio = await synthesize_speech(cancel)
+                        await ws.send_json({
+                            "type": "response", "text": cancel,
+                            "audio": base64.b64encode(caudio).decode("utf-8") if caudio else "",
+                        })
                     continue
-                user_text = (user_text or "").strip()
+
+                # Whisper STT path: client recorded audio and sent it as base64.
+                if data.get("audio"):
+                    try:
+                        audio_bytes = base64.b64decode(data["audio"])
+                        user_text = await asyncio.to_thread(whisper_stt.transcribe, audio_bytes)
+                    except Exception as e:
+                        print(f"  STT hata: {e}", flush=True)
+                        await ws.send_json({"type": "idle"})
+                        continue
+                    user_text = (user_text or "").strip()
+                    if not user_text:
+                        await ws.send_json({"type": "idle"})  # nothing understood
+                        continue
+                    await ws.send_json({"type": "user_text", "text": user_text})
+                    print(f"  You(whisper): {user_text}", flush=True)
+                    await process_message(session_id, user_text, ws)
+                    continue
+
+                # Text path: greeting on connect, or plain text messages.
+                user_text = data.get("text", "").strip()
                 if not user_text:
-                    await ws.send_json({"type": "idle"})  # nothing understood
                     continue
-                await ws.send_json({"type": "user_text", "text": user_text})
-                print(f"  You(whisper): {user_text}", flush=True)
+                print(f"  You:    {user_text}", flush=True)
                 await process_message(session_id, user_text, ws)
-                continue
 
-            # Text path: greeting on connect, or plain text messages.
-            user_text = data.get("text", "").strip()
-            if not user_text:
-                continue
-            print(f"  You:    {user_text}", flush=True)
-            await process_message(session_id, user_text, ws)
+            except WebSocketDisconnect:
+                raise
+            except Exception as e:
+                # LLM/TTS/tool error — stay connected, tell the user gracefully.
+                print(f"  İşlem hatası: {type(e).__name__}: {e}", flush=True)
+                try:
+                    await ws.send_json({
+                        "type": "response",
+                        "text": S("glitch"),
+                        "audio": "",
+                    })
+                except Exception:
+                    pass
 
     except WebSocketDisconnect:
         conversations.pop(session_id, None)
+        pending_actions.pop(session_id, None)
 
 
 app.mount("/static", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "frontend")), name="static")
@@ -455,7 +722,13 @@ async def stats():
         "disk_drive": app_drive.rstrip("\\/"),
         "weather": WEATHER_INFO or None,
         "city": CITY,
+        "language": LANGUAGE,
     }
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "electron", "icon.png"))
 
 
 @app.get("/")

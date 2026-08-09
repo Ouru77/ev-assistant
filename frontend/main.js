@@ -11,6 +11,22 @@ let ttsSpeaking = false;    // browser speech synthesis
 let awaitingResponse = false;
 let listeningEnabled = false;  // muted by default; Ctrl+Space / orb click toggles
 let audioUnlocked = false;
+let watchdog = null;
+let currentEvDiv = null;  // streamed E.V. line being appended to
+let appLang = 'tr';       // set from /stats; drives browser TTS language
+
+// Track "waiting for E.V." with a safety timeout so the UI never gets stuck.
+function setAwaiting(v) {
+    awaitingResponse = v;
+    if (watchdog) { clearTimeout(watchdog); watchdog = null; }
+    if (v) {
+        watchdog = setTimeout(() => {
+            awaitingResponse = false;
+            status.textContent = 'Yanıt gecikti — tekrar dene.';
+            resumeListening();
+        }, 60000);
+    }
+}
 
 // ---- Mic capture / VAD state ----
 let micStream = null;
@@ -32,6 +48,11 @@ const MIN_RECORD_MS = 400;       // ignore ultra-short blips
 function busy() {
     return isPlaying || ttsSpeaking || awaitingResponse;
 }
+
+// ---- Conversation mode: auto-mute after a stretch of silence ----
+let lastActivity = Date.now();
+const IDLE_MUTE_MS = 120000; // 2 min idle → auto-mute (safe during gaming)
+function markActivity() { lastActivity = Date.now(); }
 
 // Unlock audio + start mic on the first user interaction.
 async function unlockAndInit() {
@@ -96,6 +117,14 @@ function vadTick() {
     const now = Date.now();
 
     if (!recording) {
+        // Auto-mute if the conversation has gone quiet for a while.
+        if (now - lastActivity > IDLE_MUTE_MS) {
+            listeningEnabled = false;
+            setOrbState('muted');
+            status.textContent = 'Sessize alındı (boşta) — Ctrl+Space ile aç';
+            logSys('Konuşma modu boşta kaldı, sessize alındı.');
+            return;
+        }
         if (vol > START_THRESHOLD) {
             recChunks = [];
             recording = true;
@@ -123,7 +152,8 @@ function onRecordingStopped() {
     }
     setOrbState('thinking');
     status.textContent = 'E.V. dinliyor...';
-    awaitingResponse = true;
+    setAwaiting(true);
+    markActivity();
     const reader = new FileReader();
     reader.onloadend = () => {
         const b64 = reader.result.split(',')[1];
@@ -138,16 +168,19 @@ function connect() {
     ws = new WebSocket(`ws://${location.host}/ws`);
     ws.onopen = () => {
         console.log('[E.V.] WebSocket connected');
-        status.textContent = 'Bir yere tıkla, sonra konuş.';
+        // Reset any stale audio/playback state on (re)connect.
+        isPlaying = false; ttsSpeaking = false; audioQueue = [];
+        status.textContent = '';
         setOrbState('thinking');
-        awaitingResponse = true;
+        setAwaiting(true);
         ws.send(JSON.stringify({ text: 'Selam E.V.' }));
     };
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        markActivity();
         if (data.type === 'response') {
             addTranscript('ev', data.text);
-            awaitingResponse = false;
+            setAwaiting(false);
             if (data.audio && data.audio.length > 0) {
                 queueAudio(data.audio);
             } else if (data.text && data.text.trim()) {
@@ -155,10 +188,31 @@ function connect() {
             } else {
                 resumeListening();
             }
+        } else if (data.type === 'response_chunk') {
+            setAwaiting(false);
+            if (!currentEvDiv) {
+                currentEvDiv = document.createElement('div');
+                currentEvDiv.className = 'ev';
+                transcript.appendChild(currentEvDiv);
+            }
+            currentEvDiv.textContent += (currentEvDiv.textContent ? ' ' : '') + data.text;
+            transcript.scrollTop = transcript.scrollHeight;
+            if (data.audio && data.audio.length > 0) queueAudio(data.audio);
+        } else if (data.type === 'response_done') {
+            currentEvDiv = null;
+            setAwaiting(false);
+            if (!isPlaying && !ttsSpeaking && audioQueue.length === 0) resumeListening();
+        } else if (data.type === 'confirm') {
+            // Destructive action awaiting a yes/no. Speak it + show quick buttons.
+            setAwaiting(false);
+            addConfirm(data.text);
+            if (data.audio && data.audio.length > 0) queueAudio(data.audio);
+            else if (data.text) speakBrowser(data.text);
+            else resumeListening();
         } else if (data.type === 'user_text') {
             addTranscript('user', data.text);
         } else if (data.type === 'idle') {
-            awaitingResponse = false;
+            setAwaiting(false);
             resumeListening();
         } else if (data.type === 'status') {
             status.textContent = data.text;
@@ -205,14 +259,13 @@ function playNext() {
 }
 
 // ---- Free, key-less browser TTS (Turkish) ----
-function pickTurkishVoice() {
+function pickVoice() {
     const voices = window.speechSynthesis.getVoices() || [];
-    const tr = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith('tr'));
-    if (tr.length === 0) return null;
-    // Prefer higher-quality neural / online voices (Edge: "Emel/Ahmet Online (Natural)").
-    return tr.find(v => /natural|neural|online/i.test(v.name))
-        || tr.find(v => /emel|ahmet/i.test(v.name))
-        || tr[0];
+    const prefix = appLang === 'en' ? 'en' : 'tr';
+    const cand = voices.filter(v => v.lang && v.lang.toLowerCase().startsWith(prefix));
+    if (cand.length === 0) return null;
+    // Prefer higher-quality neural / online voices.
+    return cand.find(v => /natural|neural|online/i.test(v.name)) || cand[0];
 }
 // Log available Turkish voices to the console (helps pick the best one).
 if ('speechSynthesis' in window) {
@@ -225,9 +278,9 @@ function speakBrowser(text) {
     if (!('speechSynthesis' in window)) { resumeListening(); return; }
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'tr-TR';
-    const tr = pickTurkishVoice();
-    if (tr) u.voice = tr;
+    u.lang = appLang === 'en' ? 'en-US' : 'tr-TR';
+    const v = pickVoice();
+    if (v) u.voice = v;
     u.rate = 1.0;
     u.pitch = 1.0;
     ttsSpeaking = true;
@@ -238,7 +291,7 @@ function speakBrowser(text) {
     window.speechSynthesis.speak(u);
 }
 if ('speechSynthesis' in window) {
-    window.speechSynthesis.onvoiceschanged = pickTurkishVoice;
+    window.speechSynthesis.onvoiceschanged = pickVoice;
 }
 
 vizCanvas.addEventListener('click', () => { toggleListen(); });
@@ -248,6 +301,7 @@ async function toggleListen() {
     if (!analyser) { status.textContent = 'Mikrofon hazırlanıyor…'; return; }
     listeningEnabled = !listeningEnabled;
     if (listeningEnabled) {
+        markActivity();
         if (!busy()) { setOrbState('listening'); status.textContent = 'Dinliyorum…'; }
     } else {
         if (recording) { try { mediaRecorder.stop(); } catch (e) {} recording = false; recChunks = []; }
@@ -290,6 +344,7 @@ function setText(id, txt) { const el = document.getElementById(id); if (el) el.t
 async function pollStats() {
     try {
         const s = await (await fetch('/stats')).json();
+        if (s.language) appLang = s.language;
         setBar('cpu', s.cpu); setBar('ram', s.ram); setBar('disk', s.disk);
         setText('s-ram', s.ram_used_gb + '/' + s.ram_total_gb + ' GB');
         setText('s-disk', s.disk_free_gb + ' GB');
@@ -316,7 +371,7 @@ function sendText() {
     addTranscript('user', txt);
     setOrbState('thinking');
     status.textContent = 'E.V. düşünüyor…';
-    awaitingResponse = true;
+    setAwaiting(true);
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ text: txt }));
 }
 
@@ -348,6 +403,26 @@ function addTranscript(role, text) {
     const div = document.createElement('div');
     div.className = role;
     div.textContent = text;
+    transcript.appendChild(div);
+    transcript.scrollTop = transcript.scrollHeight;
+}
+
+function sendConfirm(approved) {
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ confirm: approved }));
+}
+
+function addConfirm(text) {
+    const div = document.createElement('div');
+    div.className = 'ev confirm';
+    div.textContent = text + '  ';
+    const yes = document.createElement('button');
+    yes.className = 'confirm-btn yes'; yes.textContent = 'Evet';
+    const no = document.createElement('button');
+    no.className = 'confirm-btn no'; no.textContent = 'Hayır';
+    const done = (v) => { yes.disabled = no.disabled = true; sendConfirm(v); };
+    yes.addEventListener('click', () => done(true));
+    no.addEventListener('click', () => done(false));
+    div.appendChild(yes); div.appendChild(no);
     transcript.appendChild(div);
     transcript.scrollTop = transcript.scrollHeight;
 }

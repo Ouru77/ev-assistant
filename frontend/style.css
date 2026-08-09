@@ -39,6 +39,16 @@ body {
 #transcript .ev { color: var(--green); }
 #transcript .ev::before { content: 'E.V. // '; color: var(--dim); }
 #transcript .sys { color: var(--dim); font-size: 11px; }
+#transcript .confirm { color: var(--red); }
+.confirm-btn {
+    font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    background: transparent; color: var(--dim); border: 1px solid var(--line);
+    padding: 2px 12px; margin-left: 6px; cursor: pointer; border-radius: 3px;
+    transition: all .15s;
+}
+.confirm-btn.yes:hover { color: var(--green); border-color: var(--green); box-shadow: 0 0 8px rgba(0,255,102,.4); }
+.confirm-btn.no:hover { color: var(--red); border-color: var(--red); box-shadow: 0 0 8px rgba(255,61,0,.4); }
+.confirm-btn:disabled { opacity: .35; cursor: default; box-shadow: none; }
 #transcript::-webkit-scrollbar { width: 6px; }
 #transcript::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 

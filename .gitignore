@@ -1,5 +1,9 @@
 # === GİZLİ — asla commit etme ===
 config.json
+memory.json
+
+# Çalışma zamanı çıktıları
+*.err
 
 # Python
 .venv/

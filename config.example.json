@@ -15,9 +15,15 @@
 
   "anthropic_api_key": "",
 
+  "_lang": "language: 'tr' (Türkçe) veya 'en' (English). E.V.'nin dinlediği, düşündüğü ve konuştuğu dil. / the language E.V. listens, thinks and speaks in.",
+  "language": "tr",
+
   "user_name": "ADIN",
   "user_address": "ADIN",
   "city": "İstanbul",
+
+  "pc_control": true,
+  "conversation_mode": true,
 
   "workspace_path": "",
   "browser_url": "https://www.google.com",
