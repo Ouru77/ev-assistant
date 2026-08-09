@@ -1,5 +1,7 @@
 # E.V. — Your own local voice assistant 🛠️🎙️
 
+**by [Ouru77](https://github.com/Ouru77)** · MIT License · Türkçe & English
+
 > *A private, offline-first desktop voice assistant with a cyber "PC-dashboard" HUD — inspired by Peter Parker's homemade AI **E.V.** in Spider-Man: Brand New Day.*
 
 E.V. runs **entirely on your own computer**. You talk (or type), it thinks, and it answers out loud. No cloud account required, no data leaving your machine by default. The look isn't flashy Stark holograms — it's a **grid-based cyber terminal**, in the spirit of a "budget genius" workshop.
@@ -176,3 +178,7 @@ npm install && npm start
 ## 📜 Lisans
 
 [MIT](LICENSE).
+
+---
+
+<p align="center"><sub>Made with 🛠️ by <a href="https://github.com/Ouru77">Ouru77</a> — E.V. // ONLINE</sub></p>

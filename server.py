@@ -1,7 +1,10 @@
 """
 E.V. — Voice AI Server
-FastAPI backend: receives speech text, thinks with Claude Haiku,
-speaks with ElevenLabs, controls browser with Playwright.
+FastAPI backend: local Whisper STT, a local (Ollama) or Claude brain,
+ElevenLabs/browser TTS, deterministic PC control, and long-term memory.
+
+Author: Ouru77 — https://github.com/Ouru77/ev-assistant
+License: MIT
 """
 
 import asyncio
@@ -33,8 +36,8 @@ WHISPER_DIR = config.get("whisper_dir", "")
 ANTHROPIC_API_KEY = config.get("anthropic_api_key", "")
 ELEVENLABS_API_KEY = config.get("elevenlabs_api_key", "")
 ELEVENLABS_VOICE_ID = config.get("elevenlabs_voice_id", "rDmv3mOhK6TnhYWckFaD")
-USER_NAME = config.get("user_name", "Oğul")
-USER_ADDRESS = config.get("user_address", "Oğul")
+USER_NAME = config.get("user_name", "dostum")
+USER_ADDRESS = config.get("user_address", "dostum")
 CITY = config.get("city", "İstanbul")
 LANGUAGE = config.get("language", "tr").lower()
 TASKS_FILE = config.get("obsidian_inbox_path", "")
@@ -739,7 +742,10 @@ async def serve_index():
 if __name__ == "__main__":
     import uvicorn
     print("=" * 50, flush=True)
-    print("  E.V. — Voice AI Server", flush=True)
+    print("  E.V. — Voice AI Server  ·  by Ouru77", flush=True)
     print(f"  http://localhost:8340", flush=True)
+    print("  github.com/Ouru77/ev-assistant", flush=True)
     print("=" * 50, flush=True)
-    uvicorn.run(app, host="0.0.0.0", port=8340)
+    # Bind to loopback only → the assistant is reachable from THIS machine alone,
+    # never from other devices on the network. (Electron/browser use localhost.)
+    uvicorn.run(app, host="127.0.0.1", port=8340)

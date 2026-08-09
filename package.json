@@ -1,7 +1,23 @@
 {
   "name": "ev-assistant",
-  "version": "1.0.0",
-  "description": "E.V. — kişisel sesli asistan (HUD)",
+  "version": "2.0.0",
+  "description": "E.V. — a private, local voice assistant with a cyber HUD (Türkçe/English). Inspired by Spider-Man: Brand New Day.",
+  "author": "Ouru77 (https://github.com/Ouru77)",
+  "license": "MIT",
+  "homepage": "https://github.com/Ouru77/ev-assistant",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Ouru77/ev-assistant.git"
+  },
+  "keywords": [
+    "voice-assistant",
+    "whisper",
+    "ollama",
+    "electron",
+    "local-ai",
+    "elevenlabs",
+    "turkish"
+  ],
   "main": "electron/main.js",
   "scripts": {
     "start": "electron ."
