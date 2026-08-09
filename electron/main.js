@@ -45,6 +45,7 @@ function createWindow() {
     height: H,
     x: width - W - 24,
     y: height - H - 24,
+    icon: path.join(__dirname, 'icon.ico'),
     frame: false,
     transparent: true,
     resizable: false,
