@@ -1,0 +1,12 @@
+{
+  "name": "ev-assistant",
+  "version": "1.0.0",
+  "description": "E.V. — kişisel sesli asistan (HUD)",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.4.0"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "_not": "config.json olarak kopyala ve doldur. Varsayılanlar tamamen ücretsiz/yerel (Ollama + Whisper + tarayıcı sesi) — hiç API anahtarı gerekmez. Daha iyi ses için ElevenLabs anahtarı girip tts_provider'ı 'elevenlabs' yap.",
+
+  "llm_provider": "ollama",
+  "ollama_model": "gemma2:9b",
+  "ollama_url": "http://localhost:11434",
+
+  "stt_provider": "whisper",
+  "whisper_model": "small",
+  "whisper_dir": "",
+
+  "tts_provider": "browser",
+  "elevenlabs_api_key": "",
+  "elevenlabs_voice_id": "",
+
+  "anthropic_api_key": "",
+
+  "user_name": "ADIN",
+  "user_address": "ADIN",
+  "city": "İstanbul",
+
+  "workspace_path": "",
+  "browser_url": "https://www.google.com",
+  "spotify_track": "",
+  "obsidian_inbox_path": "",
+  "apps": []
+}

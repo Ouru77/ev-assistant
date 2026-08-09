@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E.V.</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Compact titlebar (Electron compact mode) -->
+        <div id="titlebar">
+            <span id="title">E.V.</span>
+            <span id="winbtns">
+                <button id="btn-expand" title="Genişlet">⤢</button>
+                <button id="btn-hide" title="Gizle">–</button>
+                <button id="btn-quit" title="Çıkış">×</button>
+            </span>
+        </div>
+
+        <!-- Top bar -->
+        <header id="topbar" class="dash-only">
+            <div class="core">
+                <span class="live-dot"></span>
+                <span class="core-name">E.V. CORE</span>
+                <span id="core-state">ONLINE</span>
+                <span class="core-ver">v1.0</span>
+            </div>
+            <div class="clock">
+                <span id="clock-time">--:--:--</span>
+                <span id="clock-date">—</span>
+            </div>
+            <div class="topweather">
+                <span id="w-temp">—</span>
+                <span id="w-desc">—</span>
+                <span id="w-city">İZMİR</span>
+                <button id="btn-compact" title="Küçült">⤡</button>
+            </div>
+        </header>
+
+        <!-- Left: system + modules -->
+        <aside id="panel-system" class="panel dash-only">
+            <h3>// SİSTEM</h3>
+            <div class="stat"><label>CPU</label><div class="bar"><i id="bar-cpu"></i></div><span class="pct" id="val-cpu">—</span></div>
+            <div class="stat"><label>RAM</label><div class="bar"><i id="bar-ram"></i></div><span class="pct" id="val-ram">—</span></div>
+            <div class="stat"><label>DISK</label><div class="bar"><i id="bar-disk"></i></div><span class="pct" id="val-disk">—</span></div>
+            <div class="substats">
+                <div><b id="s-ram">—</b><label>BELLEK</label></div>
+                <div><b id="s-disk">—</b><label>BOŞ (A:)</label></div>
+                <div><b id="s-wind">—</b><label>RÜZGÂR</label></div>
+            </div>
+            <h3 class="mt">// MODÜLLER</h3>
+            <ul id="modules">
+                <li><span class="ok">●</span> STT ······· WHISPER</li>
+                <li><span class="ok">●</span> ÇEKİRDEK ·· GEMMA2:9B</li>
+                <li><span class="ok">●</span> SES ······· ELEVENLABS</li>
+                <li><span class="ok">●</span> GPU ······· RX 6700 XT</li>
+            </ul>
+        </aside>
+
+        <!-- Center: audio core visualizer -->
+        <section id="viz-stage">
+            <canvas id="viz"></canvas>
+            <div id="status">Başlamak için Ctrl+Space</div>
+        </section>
+
+        <!-- Right: event / conversation log -->
+        <section id="panel-log" class="panel">
+            <h3 class="dash-only">// OLAY GÜNLÜĞÜ</h3>
+            <div id="transcript"></div>
+        </section>
+
+        <!-- Bottom: code strip + terminal input -->
+        <footer id="dockbar" class="dash-only">
+            <div id="codestrip"><span id="code-line"></span></div>
+            <div id="terminal-input">
+                <span class="prompt">&gt;</span>
+                <input id="text-input" type="text" placeholder="E.V.'ye yaz…" autocomplete="off" spellcheck="false" />
+                <button id="mic-btn" title="Dinle (Ctrl+Space)">MIC</button>
+                <button id="send-btn" title="Gönder">GÖNDER</button>
+            </div>
+        </footer>
+    </div>
+    <script src="/static/main.js"></script>
+</body>
+</html>

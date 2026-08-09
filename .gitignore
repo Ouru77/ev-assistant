@@ -1,0 +1,27 @@
+# === GİZLİ — asla commit etme ===
+config.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Node / Electron
+node_modules/
+
+# Loglar & çalışma zamanı
+*.log
+
+# Üretilen/geçici ses dosyaları
+*.mp3
+*.wav
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Yerel araç/editör ayarları
+.claude/
+.vscode/
+.idea/

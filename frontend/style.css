@@ -1,0 +1,136 @@
+:root {
+    --bg: #0b0f19;
+    --panel-bg: rgba(9, 14, 24, 0.62);
+    --green: #00ff66;
+    --blue: #00e5ff;
+    --red: #ff3d00;
+    --amber: #ffb020;
+    --line: rgba(0, 229, 255, 0.22);
+    --line-soft: rgba(0, 229, 255, 0.10);
+    --text: #bfe3dd;
+    --dim: #5a7183;
+    --mono: 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Share Tech Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    color: var(--text);
+    font-family: var(--mono);
+    height: 100vh;
+    overflow: hidden;
+    background-color: var(--bg);
+    background-image:
+        linear-gradient(var(--line-soft) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+    background-size: 28px 28px;
+}
+
+/* ============ CENTER VISUALIZER (shared) ============ */
+#viz-stage { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; position: relative; }
+#viz { width: 100%; height: 100%; max-height: 460px; cursor: pointer; }
+#status { font-size: 12px; color: var(--dim); letter-spacing: 1px; text-transform: uppercase; min-height: 16px; text-align: center; }
+
+/* ============ TRANSCRIPT / LOG (shared) ============ */
+#transcript { overflow-y: auto; font-size: 13px; line-height: 1.55; }
+#transcript > div { margin-bottom: 8px; word-wrap: break-word; }
+#transcript .user { color: var(--blue); }
+#transcript .user::before { content: '> '; color: var(--dim); }
+#transcript .ev { color: var(--green); }
+#transcript .ev::before { content: 'E.V. // '; color: var(--dim); }
+#transcript .sys { color: var(--dim); font-size: 11px; }
+#transcript::-webkit-scrollbar { width: 6px; }
+#transcript::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+/* ============ PANELS ============ */
+.panel h3 { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--green); margin-bottom: 12px; }
+.panel h3.mt { margin-top: 22px; }
+
+/* ============ TITLEBAR (compact) ============ */
+#titlebar { display: none; align-items: center; justify-content: space-between; padding: 8px 12px; -webkit-app-region: drag; user-select: none; border-bottom: 1px solid var(--line-soft); }
+#title { font-size: 13px; font-weight: 700; letter-spacing: 3px; color: var(--green); }
+#winbtns { -webkit-app-region: no-drag; display: flex; gap: 6px; }
+#winbtns button { width: 22px; height: 22px; border: 1px solid var(--line-soft); border-radius: 3px; background: transparent; color: var(--dim); cursor: pointer; font-size: 12px; font-family: var(--mono); }
+#winbtns button:hover { border-color: var(--blue); color: var(--blue); }
+#btn-quit:hover { border-color: var(--red); color: var(--red); }
+
+/* ============ MODE: COMPACT ============ */
+body.compact.electron { background: transparent; background-image: none; }
+body.compact #app { height: 100vh; display: flex; flex-direction: column; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+body.compact #titlebar { display: flex; }
+body.compact .dash-only { display: none !important; }
+body.compact #viz-stage { flex: 0 0 auto; height: 200px; padding-top: 10px; }
+body.compact #panel-log { flex: 1 1 auto; padding: 6px 14px 12px; min-height: 0; }
+body.compact #transcript { max-height: 100%; }
+
+/* ============ MODE: DASHBOARD ============ */
+body.dashboard #titlebar { display: none; }
+body.dashboard #app {
+    height: 100vh; display: grid;
+    grid-template-columns: 300px 1fr 380px;
+    grid-template-rows: auto 1fr auto;
+    grid-template-areas: "top top top" "sys viz log" "dock dock dock";
+    gap: 14px; padding: 14px;
+}
+body.dashboard #topbar { grid-area: top; }
+body.dashboard #panel-system { grid-area: sys; }
+body.dashboard #viz-stage { grid-area: viz; }
+body.dashboard #panel-log { grid-area: log; }
+body.dashboard #dockbar { grid-area: dock; }
+
+body.dashboard .panel {
+    background: var(--panel-bg); border: 1px solid var(--line); border-radius: 4px;
+    padding: 14px 16px; overflow: hidden; display: flex; flex-direction: column;
+    position: relative;
+}
+body.dashboard .panel::before {
+    content: ''; position: absolute; top: -1px; left: -1px; width: 14px; height: 14px;
+    border-top: 2px solid var(--green); border-left: 2px solid var(--green);
+}
+
+/* top bar */
+#topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: 4px; }
+.core { display: flex; align-items: center; gap: 10px; letter-spacing: 2px; }
+.core-name { color: var(--green); font-weight: 700; font-size: 15px; }
+#core-state { color: var(--green); font-size: 12px; }
+.core-ver { color: var(--dim); font-size: 11px; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 1.6s ease-in-out infinite; }
+@keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.clock { text-align: center; }
+#clock-time { font-size: 24px; font-weight: 700; letter-spacing: 3px; color: var(--text); }
+#clock-date { display: block; font-size: 10px; color: var(--dim); letter-spacing: 2px; text-transform: uppercase; }
+.topweather { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 1px; }
+#w-temp { font-size: 17px; font-weight: 700; color: var(--blue); }
+#w-desc { color: var(--text); }
+#w-city { color: var(--dim); }
+
+/* system stats */
+.stat { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; gap: 8px; margin-bottom: 10px; }
+.stat label { font-size: 11px; color: var(--dim); letter-spacing: 1px; }
+.stat .bar { height: 8px; background: rgba(0, 229, 255, 0.08); border: 1px solid var(--line-soft); overflow: hidden; }
+.stat .bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--blue), var(--green)); transition: width 0.6s ease; }
+.stat .pct { font-size: 11px; text-align: right; color: var(--text); }
+.substats { display: flex; justify-content: space-between; margin-top: 14px; gap: 6px; }
+.substats > div { flex: 1; text-align: center; border: 1px solid var(--line-soft); padding: 8px 2px; }
+.substats b { display: block; font-size: 14px; color: var(--blue); }
+.substats label { font-size: 9px; color: var(--dim); letter-spacing: 0.5px; }
+#modules { list-style: none; font-size: 12px; line-height: 1.9; color: var(--text); }
+#modules .ok { color: var(--green); text-shadow: 0 0 6px var(--green); }
+
+/* conversation/log */
+body.dashboard #transcript { flex: 1 1 auto; min-height: 0; }
+
+/* dock: code strip + terminal input */
+#dockbar { display: flex; flex-direction: column; gap: 8px; }
+#codestrip { height: 18px; overflow: hidden; white-space: nowrap; border: 1px solid var(--line-soft); background: var(--panel-bg); }
+#code-line { display: inline-block; padding: 2px 8px; font-size: 11px; color: rgba(0, 255, 102, 0.55); letter-spacing: 1px; animation: scroll-code 40s linear infinite; }
+@keyframes scroll-code { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+#terminal-input { display: flex; align-items: center; gap: 8px; background: var(--panel-bg); border: 1px solid var(--line); border-radius: 4px; padding: 8px 12px; }
+#terminal-input .prompt { color: var(--green); font-weight: 700; }
+#text-input { flex: 1; background: transparent; border: none; color: var(--text); font-family: var(--mono); font-size: 13px; outline: none; }
+#text-input::placeholder { color: var(--dim); }
+#mic-btn, #send-btn { -webkit-app-region: no-drag; background: transparent; border: 1px solid var(--line); color: var(--blue); font-family: var(--mono); font-size: 11px; letter-spacing: 1px; padding: 6px 10px; cursor: pointer; border-radius: 3px; }
+#mic-btn:hover, #send-btn:hover { border-color: var(--blue); background: rgba(0, 229, 255, 0.1); }
+#mic-btn.on { border-color: var(--green); color: var(--green); background: rgba(0, 255, 102, 0.12); }
+.topweather button, #btn-compact { -webkit-app-region: no-drag; background: transparent; border: 1px solid var(--line); color: var(--blue); cursor: pointer; padding: 4px 8px; font-size: 13px; border-radius: 3px; margin-left: 6px; }
+.topweather button:hover { border-color: var(--blue); }
