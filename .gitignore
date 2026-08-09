@@ -23,8 +23,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Local tooling / editor
+# Local tooling / editor / notes
 .claude/
 .vscode/
 .idea/
 CLAUDE.md
+ROADMAP.md
