@@ -90,6 +90,9 @@ _POWER_RULES_EN = [
 _MEM_TRIGGER_EN = r"\b(remember|keep in mind|note that|don'?t forget|make a note)\b"
 _FORGET_TRIGGER_EN = r"\b(forget|erase|delete this)\b"
 
+_BYE_TR = r"\b(görüşürüz|görüşmek üzere|hoşça ?kal|hoşca ?kal|güle güle|kendine iyi bak|bay ?bay|kapan(abilirsin)?|kendini kapat|uyu(yabilirsin)?|dinlemeyi (bırak|kapat)|sessize geç)\b"
+_BYE_EN = r"\b(goodbye|good bye|see you|see ya|bye( now)?|take care|go to sleep|sleep now|stop listening|mute yourself)\b"
+
 
 def route(text: str, lang: str = "tr"):
     """Return an action dict for a clear command, or None to defer to the LLM."""
@@ -98,6 +101,10 @@ def route(text: str, lang: str = "tr"):
     t = _norm(text)
     if not t:
         return None
+
+    # --- Farewell → go to sleep (stop listening) ---
+    if re.search(_BYE_TR, t):
+        return {"type": "SLEEP", "payload": ""}
 
     # --- Memory: forget ---
     if re.search(_FORGET_TRIGGER, t):
@@ -170,6 +177,9 @@ def _route_en(t: str):
     """English command routing."""
     if not t:
         return None
+
+    if re.search(_BYE_EN, t):
+        return {"type": "SLEEP", "payload": ""}
 
     if re.search(_FORGET_TRIGGER_EN, t):
         if re.search(r"\b(everything|all|it all)\b", t):

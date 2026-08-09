@@ -292,13 +292,8 @@ def greeting_prefix():
 
 
 def build_greeting():
-    """Deterministic, clean greeting spoken on session start."""
-    parts = [f"{greeting_prefix()} {USER_NAME}."]
-    if WEATHER_INFO:
-        w = WEATHER_INFO
-        parts.append(strings.s("weather_line", LANGUAGE, city=CITY, temp=w["temp"],
-                               desc=w["description"].lower()))
-    parts.append(strings.s("greet_ready", LANGUAGE))
+    """Deterministic, clean greeting spoken on session start (generic, no weather)."""
+    parts = [f"{greeting_prefix()} {USER_NAME},", strings.s("greet_ready", LANGUAGE)]
     return " ".join(parts)
 
 
@@ -577,8 +572,13 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     # commands work reliably even when a small local model won't emit action tags.
     # Memory (REMEMBER/FORGET) always routes; PC actions only when pc_control is on.
     routed = command_router.route(user_text, LANGUAGE)
-    if routed and (PC_CONTROL or routed["type"] in ("REMEMBER", "FORGET")):
+    if routed and (PC_CONTROL or routed["type"] in ("REMEMBER", "FORGET", "SLEEP")):
         print(f"  Routed: {routed['type']} -> {routed['payload'][:80]}", flush=True)
+        if routed["type"] == "SLEEP":
+            # Farewell: say goodbye, then tell the client to stop listening.
+            await _speak_response(session_id, S("bye"), ws)
+            await ws.send_json({"type": "sleep"})
+            return
         if routed["type"] in DESTRUCTIVE_ACTIONS:
             pending_actions[session_id] = routed
             question = confirm_prompt(routed)

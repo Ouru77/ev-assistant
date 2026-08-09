@@ -7,6 +7,7 @@ open folders, and (with confirmation) run commands or power actions.
 import ctypes
 import os
 import subprocess
+from ctypes import wintypes
 
 _LANG = "tr"
 
@@ -198,17 +199,38 @@ def mouse(kind: str, amount: int = 3) -> str:
 
 
 def fullscreen_active() -> bool:
-    """True if a fullscreen app (game, fullscreen video, presentation) is running.
+    """True if ANY window is fullscreen (game, video, F11 browser, slideshow...).
 
-    Uses SHQueryUserNotificationState — the same signal Windows uses to suppress
-    notifications — so it's robust across games, borderless video, etc.
+    Two signals: SHQueryUserNotificationState (games/video/presentations) AND a
+    check of whether the foreground window covers the whole primary screen.
     """
+    # 1) The notification-state signal (games, exclusive fullscreen, presentations).
     try:
         state = ctypes.c_int(0)
-        # S_OK == 0; state filled in. QUNS_BUSY=2, QUNS_RUNNING_D3D_FULL_SCREEN=3,
-        # QUNS_PRESENTATION_MODE=4 all mean "something is fullscreen / busy".
+        # QUNS_BUSY=2, QUNS_RUNNING_D3D_FULL_SCREEN=3, QUNS_PRESENTATION_MODE=4.
         if ctypes.windll.shell32.SHQueryUserNotificationState(ctypes.byref(state)) == 0:
-            return state.value in (2, 3, 4)
+            if state.value in (2, 3, 4):
+                return True
+    except Exception:
+        pass
+
+    # 2) Foreground window spans the entire primary monitor (borderless / F11 /
+    #    fullscreen video). Skip the desktop and shell so we don't false-trigger.
+    try:
+        u = ctypes.windll.user32
+        hwnd = u.GetForegroundWindow()
+        if not hwnd:
+            return False
+        cls = ctypes.create_unicode_buffer(256)
+        u.GetClassNameW(hwnd, cls, 256)
+        if cls.value in ("Progman", "WorkerW", "Shell_TrayWnd", "Button"):
+            return False
+        rect = wintypes.RECT()
+        u.GetWindowRect(hwnd, ctypes.byref(rect))
+        sw = u.GetSystemMetrics(0)  # SM_CXSCREEN
+        sh = u.GetSystemMetrics(1)  # SM_CYSCREEN
+        if rect.left <= 0 and rect.top <= 0 and rect.right >= sw and rect.bottom >= sh:
+            return True
     except Exception:
         pass
     return False

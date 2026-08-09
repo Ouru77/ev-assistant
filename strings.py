@@ -12,12 +12,14 @@ _S = {
     "greet_day":       {"tr": "İyi günler",   "en": "Good afternoon"},
     "greet_evening":   {"tr": "İyi akşamlar",  "en": "Good evening"},
     "greet_night":     {"tr": "İyi geceler",   "en": "Good evening"},
-    "greet_ready":     {"tr": "Hazırım, bugün ne yapıyoruz?",
-                        "en": "I'm ready — what are we doing today?"},
+    "greet_ready":     {"tr": "sana nasıl yardımcı olabilirim?",
+                        "en": "how can I help you?"},
     "weather_line":    {"tr": "{city}'de hava {temp} derece, {desc}.",
                         "en": "It's {temp} degrees in {city}, {desc}."},
     "canceled":        {"tr": "Tamam {name}, vazgeçtim.",
                         "en": "Okay {name}, I'll leave it."},
+    "bye":             {"tr": "Görüşürüz {name}, kendine iyi bak. Beni istediğinde uyandır.",
+                        "en": "See you {name}, take care. Wake me whenever you need me."},
     "glitch":          {"tr": "Bir aksilik oldu, {name}. Bir daha dener misin?",
                         "en": "Something glitched, {name}. Mind trying again?"},
     "action_problem":  {"tr": "Bir sorun çıktı, {name}.",
@@ -94,7 +96,7 @@ MUTLAK KURALLAR (bunları ihlal etme):
 6. YAPAMAYACAĞIN bir şeyi yapabiliyormuş gibi ASLA söyleme. Elinde YALNIZCA aşağıdaki AKSİYONLAR var. Bunların dışında bir şey istenirse (ekrandaki bir videoya/öğeye tıklamak, bir uygulamanın içinde gezinmek, fareyle bir şey seçmek) "tamam, açıyorum/yapıyorum" DEME — dürüstçe "Bunu şu an yapamıyorum" de ve varsa alternatifi öner (örneğin videonun adını söylerse arayıp açabileceğini söyle).{memory_block}
 
 AKSİYONLAR: Kullanıcı SENDEN AÇIKÇA bir şey yapmanı isterse (bir şey aramak, bir site açmak, ekranına bakmak, haber getirmek), o zaman ilgili aksiyonu cevabının EN SONUNA yaz. Sıradan sohbette aksiyon KULLANMA.
-[ACTION:SEARCH] arama terimi — internette ara
+[ACTION:SEARCH] arama terimi — internette ara. SADECE kullanıcı açıkça "ara/araştır" derse ya da senin bilemeyeceğin güncel/canlı bilgi için (bugünün haberi, anlık fiyat, son gelişmeler) kullan. Sıradan sorularda ARAMA yapma, kendi bilginle CEVAP VER. Arama arka planda çalışır, o yüzden asla "tarayıcıyı açıyorum" deme.
 [ACTION:OPEN] url — tarayıcıda site aç
 [ACTION:SCREEN] — sadece "ekrana bak / ne görüyorsun" dendiğinde. O zaman SADECE bu satırı yaz.
 [ACTION:NEWS] — sadece haber/gündem sorulduğunda. Önüne kısa bir cümle yaz.{pc_block}
@@ -118,7 +120,7 @@ ABSOLUTE RULES (never break these):
 6. NEVER claim to do something you can't. You have ONLY the ACTIONS listed below. If asked for anything else (clicking a video/element on screen, navigating inside an app, picking something with the mouse), do NOT say "okay, opening it" — honestly say "I can't do that yet" and suggest an alternative if there is one (e.g. if they tell you the video's name, you can search and open it).{memory_block}
 
 ACTIONS: If the user EXPLICITLY asks you to DO something (search, open a site, look at their screen, fetch news), write the matching action at the VERY END of your reply. In ordinary chat, DO NOT use actions.
-[ACTION:SEARCH] query — search the web
+[ACTION:SEARCH] query — search the web. Use this ONLY when the user explicitly asks you to search/look something up, or for genuinely current/live info you can't know (today's news, live prices, latest events). For ordinary questions, just ANSWER from your own knowledge; do NOT search. The search runs in the background, so never say "opening the browser".
 [ACTION:OPEN] url — open a site in the browser
 [ACTION:SCREEN] — only when asked "look at my screen / what do you see". Then write ONLY this line.
 [ACTION:NEWS] — only when asked for news/headlines. Write one short sentence before it.{pc_block}

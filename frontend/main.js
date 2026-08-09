@@ -13,6 +13,7 @@ let listeningEnabled = false;  // muted by default; Ctrl+Space / orb click toggl
 let audioUnlocked = false;
 let watchdog = null;
 let currentEvDiv = null;  // streamed E.V. line being appended to
+let currentAudio = null;  // the HTMLAudio currently playing (so we can stop it)
 // Language: /stats sets it from config; ?lang=en|tr overrides (handy for previews).
 const _langOverride = new URLSearchParams(location.search).get('lang');
 let appLang = _langOverride === 'en' ? 'en' : 'tr';  // set from /stats; drives TTS + UI
@@ -89,7 +90,7 @@ let vadTimer = null;
 // Tunable thresholds (energy on a 0..1 scale)
 const START_THRESHOLD = 0.028;   // start recording above this
 const KEEP_THRESHOLD = 0.020;    // keep recording above this
-const SILENCE_MS = 900;          // stop after this much trailing silence
+const SILENCE_MS = 1800;         // stop after this much trailing silence (lets you pause mid-sentence)
 const MIN_RECORD_MS = 400;       // ignore ultra-short blips
 
 function busy() {
@@ -256,6 +257,10 @@ function connect() {
             if (data.audio && data.audio.length > 0) queueAudio(data.audio);
             else if (data.text) speakBrowser(data.text);
             else resumeListening();
+        } else if (data.type === 'sleep') {
+            // Farewell: stop listening and stay muted (don't auto-resume).
+            listeningEnabled = false;
+            logSys(appLang === 'en' ? 'Going to sleep. Ctrl+Space to wake me.' : 'Uykuya geçiyorum. Ctrl+Space ile uyandır.');
         } else if (data.type === 'fullscreen') {
             handleFullscreen(data.active);
         } else if (data.type === 'user_text') {
@@ -318,10 +323,23 @@ function playNext() {
     const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
     const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
     const audio = new Audio(url);
+    currentAudio = audio;
     hookOutputAnalyser(audio);  // let the visualizer react to E.V.'s voice
     audio.onended = () => { URL.revokeObjectURL(url); playNext(); };
     audio.onerror = () => { URL.revokeObjectURL(url); playNext(); };
     audio.play().catch(() => { isPlaying = false; resumeListening(); });
+}
+
+// Stop everything E.V. is saying/doing right now (barge-in on output).
+function stopEverything() {
+    audioQueue = [];
+    if (currentAudio) { try { currentAudio.pause(); } catch (e) {} currentAudio = null; }
+    try { window.speechSynthesis.cancel(); } catch (e) {}
+    isPlaying = false; ttsSpeaking = false;
+    currentEvDiv = null;
+    setAwaiting(false);
+    logSys(appLang === 'en' ? 'Stopped.' : 'Durduruldu.');
+    resumeListening();
 }
 
 // ---- Free, key-less browser TTS (Turkish) ----
@@ -436,12 +454,14 @@ setInterval(pollStats, 2500);
 pollStats();
 
 // ---- Text input ----
+const STOP_WORDS = /^(dur|durdur|dursana|kes|sus|stop|shut up|be quiet|cancel)\.?$/i;
 function sendText() {
     const input = document.getElementById('text-input');
     if (!input) return;
     const txt = input.value.trim();
     if (!txt) return;
     input.value = '';
+    if (STOP_WORDS.test(txt)) { stopEverything(); return; }  // local stop, don't send
     addTranscript('user', txt);
     setOrbState('thinking');
     status.textContent = T('thinking');
@@ -454,9 +474,12 @@ function wire(id, fn) { const el = document.getElementById(id); if (el) el.addEv
 wire('btn-expand', () => setMode('dashboard'));
 wire('btn-compact', () => setMode('compact'));
 wire('mic-btn', () => toggleListen());
+wire('stop-btn', stopEverything);
 wire('send-btn', sendText);
 const ti = document.getElementById('text-input');
 if (ti) ti.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendText(); });
+// Esc anywhere = stop E.V. immediately.
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') stopEverything(); });
 
 if (isElectron) {
     window.electronAPI.onToggleListen(() => toggleListen());
