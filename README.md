@@ -67,9 +67,16 @@ Mic → Whisper (STT, local) → FastAPI server
 - **TTS:** ElevenLabs or the browser Web Speech API
 - **UI:** Electron + HTML/CSS/JS (`electron/`, `frontend/`)
 
-## 🚀 Setup
+## 🖥️ Requirements
 
-**Requirements:** Windows 10/11, Python 3.10+, [Ollama](https://ollama.com), and (for the desktop app) Node.js.
+- **OS:** Windows 10/11 — PC control, screen capture, media keys, fullscreen auto-tray and the launcher are Windows-specific.
+- **Python** 3.10+ · **[Ollama](https://ollama.com)** (local brain) · **Node.js** (only for the Electron desktop app).
+- **GPU / VRAM:** the default `gemma2:9b` needs **~7–8 GB VRAM** (Q4) and runs fully on an **8 GB+** GPU (I'm on an RX 6700 XT 12 GB, ~37 tok/s). On a smaller card, swap in a **3B** model (`llama3.2:3b`, `qwen2.5:3b`) for **~2–4 GB**, or run **CPU-only** (slower).
+- **STT & TTS add no VRAM:** Whisper runs on the **CPU**; voice is ElevenLabs/browser (not local).
+- **RAM:** 16 GB is comfortable.
+- **Free by default** — no API keys needed (Ollama + Whisper + browser voice). Claude for screen vision and ElevenLabs for a nicer voice are optional.
+
+## 🚀 Setup
 
 ```bash
 # 1) Python dependencies
@@ -185,6 +192,14 @@ E.V., tamamen **kendi bilgisayarında** çalışan, gizliliğe önem veren bir s
 - 🔕 **Güvenli dinleme** — varsayılan sessiz; `Ctrl+Space` ile açılır.
 
 > 🔑 **Anahtar gerektirenler:** Konuşma, PC kontrolü, hafıza, YouTube ve HUD **tamamen ücretsiz** çalışır (Ollama + Whisper + tarayıcı sesi, anahtar gerekmez). Yalnızca **ekranı görme** için Claude anahtarı, doğal **ElevenLabs sesi** için ElevenLabs anahtarı, beyin olarak **Claude** için Claude anahtarı gerekir.
+
+## 🖥️ Gereksinimler
+
+- **İşletim sistemi:** Windows 10/11 (PC kontrolü, ekran yakalama, medya tuşları ve tam ekran algısı Windows'a özel).
+- **Python** 3.10+ · **[Ollama](https://ollama.com)** · **Node.js** (yalnızca masaüstü uygulaması için).
+- **GPU / VRAM:** varsayılan `gemma2:9b` **~7–8 GB VRAM** ister (Q4), **8 GB+** kartta tamamen GPU'da çalışır. Küçük kartta **3B** model (`llama3.2:3b`, `qwen2.5:3b`) ile ~2–4 GB, ya da sadece CPU (daha yavaş).
+- Whisper **CPU'da** çalışır, ses ElevenLabs/tarayıcı — yani **ses için yerel VRAM gerekmez**.
+- **Varsayılanda ücretsiz** — anahtar gerekmez.
 
 ## 🚀 Kurulum
 
