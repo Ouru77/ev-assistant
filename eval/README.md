@@ -24,11 +24,19 @@ ready-to-paste README table row.
 
 ## Benchmark another model
 
-1. Set `"ollama_model"` in `config.json` (e.g. `gemma2:9b`, `qwen2.5:7b`).
-2. `ollama pull <model>` if you haven't.
-3. `python eval/run_eval.py` again.
+Either set `"ollama_model"` in `config.json`, or override it for one run without
+touching config:
 
-Each run reads the current config, so the score matches that model. The cases
-live in `eval/cases.py` (bilingual; the set matching `config.language` is used).
+```bash
+EV_EVAL_MODEL=qwen2.5:7b python eval/run_eval.py
+```
+
+`ollama pull <model>` first if you haven't. Each run reads the current config
+(the override wins), so the score matches that model. The cases live in
+`eval/cases.py` (bilingual; the set matching `config.language` is used).
+
+The benchmark uses **temperature 0** for a reproducible score (the app itself
+uses 0.7 for conversation) and reports pure generation tok/s from Ollama's own
+eval metrics, plus end-to-end latency.
 
 > Note: this loads the model into VRAM. Run it when the GPU is free.

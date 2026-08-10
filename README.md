@@ -76,6 +76,27 @@ Mic → Whisper (STT, local) → FastAPI server
 - **RAM:** 16 GB is comfortable.
 - **Free by default** — no API keys needed (Ollama + Whisper + browser voice). Claude for screen vision and ElevenLabs for a nicer voice are optional.
 
+## 🧪 Brain benchmark
+
+The deterministic router handles explicit commands, so the LLM's job is narrow: chat, and emit an `[ACTION:...]` tag when a request actually needs one. `eval/` measures exactly that — **action-tag accuracy**: on a 22-prompt set that bypasses the router (SEARCH / NEWS / SCREEN requests plus ordinary chat that must stay tag-free), how often does the model emit the right tag, or correctly none? Run at temperature 0, so the score is reproducible.
+
+| Model | Action-tag accuracy | Generation | ~VRAM (Q4) |
+|---|---|---|---|
+| `gemma2:9b` (default) | 68% | ~43 tok/s | ~7–8 GB |
+| `aya-expanse:8b` | 59% | ~50 tok/s | ~5–6 GB |
+
+*Measured on an RX 6700 XT (12 GB), Turkish prompts. Accuracy is tool-use reliability, not overall chat quality — `gemma2:9b` is the default because it led this for the footprint.*
+
+**Don't take my numbers — benchmark your own card and model:**
+
+```bash
+# set "ollama_model" in config.json, then from the repo root:
+python eval/run_eval.py
+
+# ...or try one without touching config:
+EV_EVAL_MODEL=qwen2.5:7b python eval/run_eval.py
+```
+
 ## 🚀 Setup
 
 ```bash

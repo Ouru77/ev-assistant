@@ -71,6 +71,11 @@ async def _grade_one(phrase: str, expected):
 async def main():
     lang = server.LANGUAGE
     dataset = cases.CASES.get(lang, cases.CASES["en"])
+    # Benchmark a specific model without editing config.json:
+    #   EV_EVAL_MODEL=aya-expanse:8b python eval/run_eval.py
+    override = os.environ.get("EV_EVAL_MODEL")
+    if override:
+        server.OLLAMA_MODEL = override
     model = server.OLLAMA_MODEL if server.LLM_PROVIDER == "ollama" else "claude"
 
     print("=" * 64)
