@@ -71,7 +71,7 @@ Mic → Whisper (STT, local) → FastAPI server
 
 - **OS:** Windows 10/11 — PC control, screen capture, media keys, fullscreen auto-tray and the launcher are Windows-specific.
 - **Python** 3.10+ · **[Ollama](https://ollama.com)** (local brain) · **Node.js** (only for the Electron desktop app).
-- **GPU / VRAM:** the default `gemma2:9b` needs **~7–8 GB VRAM** (Q4) and runs fully on an **8 GB+** GPU (I'm on an RX 6700 XT 12 GB, ~37 tok/s). On a smaller card, swap in a **3B** model (`llama3.2:3b`, `qwen2.5:3b`) for **~2–4 GB**, or run **CPU-only** (slower).
+- **GPU / VRAM:** the default `gemma2:9b` needs **~7–8 GB VRAM** (Q4) and runs fully on an **8 GB+** GPU (I'm on an RX 6700 XT 12 GB, ~43 tok/s). On a smaller card, swap in a **3B** model (`llama3.2:3b`, `qwen2.5:3b`) for **~2–4 GB**, or run **CPU-only** (slower).
 - **STT & TTS add no VRAM:** Whisper runs on the **CPU**; voice is ElevenLabs/browser (not local).
 - **RAM:** 16 GB is comfortable.
 - **Free by default** — no API keys needed (Ollama + Whisper + browser voice). Claude for screen vision and ElevenLabs for a nicer voice are optional.
@@ -222,6 +222,27 @@ E.V., tamamen **kendi bilgisayarında** çalışan, gizliliğe önem veren bir s
 - Whisper **CPU'da** çalışır, ses ElevenLabs/tarayıcı — yani **ses için yerel VRAM gerekmez**.
 - **Varsayılanda ücretsiz** — anahtar gerekmez.
 
+## 🧪 Beyin karşılaştırması
+
+Deterministik router açık komutları hallettiği için LLM'in işi dardır: sohbet etmek ve bir istek gerçekten gerektirdiğinde `[ACTION:...]` etiketi üretmek. `eval/` tam olarak bunu ölçer — **action-tag doğruluğu**: router'ı atlayan 22 istemlik bir sette (SEARCH / NEWS / SCREEN istekleri + etiketsiz kalması gereken sıradan sohbet) model doğru etiketi (ya da doğru şekilde hiçbirini) ne sıklıkla üretiyor? `temperature 0` ile çalışır, yani skor tekrar-üretilebilir.
+
+| Model | Action-tag doğruluğu | Üretim | ~VRAM (Q4) |
+|---|---|---|---|
+| `gemma2:9b` (varsayılan) | %68 | ~43 tok/s | ~7–8 GB |
+| `aya-expanse:8b` | %59 | ~50 tok/s | ~5–6 GB |
+
+*RX 6700 XT (12 GB), Türkçe istemlerle ölçüldü. Doğruluk, araç-kullanım güvenilirliğidir — genel sohbet kalitesi değil. `gemma2:9b` varsayılan çünkü bu ayak izinde önde çıktı.*
+
+**Sayılarıma güvenme — kendi kartını ve modelini ölç:**
+
+```bash
+# config.json'da "ollama_model" ayarla, sonra repo kökünden:
+python eval/run_eval.py
+
+# ...ya da config'e dokunmadan birini dene:
+EV_EVAL_MODEL=qwen2.5:7b python eval/run_eval.py
+```
+
 ## 🚀 Kurulum
 
 ```bash
@@ -236,6 +257,17 @@ npm install && npm start
 
 > `config.json` içinde `user_name` alanına **kendi adını** yaz — E.V. seni bu isimle selamlar. `language`'ı `"tr"` yap.
 > Daha iyi ses için [elevenlabs.io](https://elevenlabs.io); Claude beyni için [console.anthropic.com](https://console.anthropic.com).
+
+## 🎮 Nasıl kullanılır
+
+1. Uygulamayı aç (ya da `http://localhost:8340`).
+2. Dinlemeyi başlatmak için **`Ctrl+Space`** (ya da çekirdeğe tıkla) — varsayılan sessiz.
+3. Konuş. E.V. yazıya döker, düşünür ve sesle cevap verir.
+4. Deneyebileceklerin:
+   - *"Neler yapabilirsin?"*
+   - *"Hesap makinesini aç."* · *"Chrome'u kapat."* (onay ister)
+   - *"Sesi aç."* · *"Sonraki şarkı."* · *"Ekranı kilitle."* (onay ister)
+   - *"Kahvemi sade içtiğimi hatırla."* → sonra: *"Kahvemi nasıl içerim?"*
 
 ## 🙏 Teşekkür
 

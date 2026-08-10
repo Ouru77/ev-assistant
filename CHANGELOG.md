@@ -4,6 +4,22 @@ Notable changes to E.V. The format loosely follows
 [Keep a Changelog](https://keepachangelog.com/); versions follow
 [SemVer](https://semver.org/).
 
+## [1.0.1] — 2026-08-10
+
+### Fixed
+- English UI: with `language: "en"` in config, the dashboard chrome (panel
+  labels, the workshop flavor log, and the "core initialized" line) rendered in
+  Turkish unless `?lang=en` was passed in the URL. The default language was
+  applied before `/stats` resolved and never re-rendered. All language-dependent
+  text now re-renders once the server language is known.
+
+### Docs
+- Refreshed the dashboard screenshots for the regrouped stats layout (wind moved
+  to the weather cluster).
+- README: added the brain-benchmark and "how to use" sections to the Turkish
+  half for parity with English; aligned the quoted `gemma2:9b` speed with the
+  benchmark (~43 tok/s).
+
 ## [1.0.0] — 2026-08-10
 
 First stable, tagged release. E.V. is a Windows-only, local-first voice

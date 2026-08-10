@@ -18,20 +18,28 @@ let currentAudio = null;  // the HTMLAudio currently playing (so we can stop it)
 const _langOverride = new URLSearchParams(location.search).get('lang');
 let appLang = _langOverride === 'en' ? 'en' : 'tr';  // set from /stats; drives TTS + UI
 
-// Static UI labels. HTML is authored in English; this overlay applies when
-// appLang === 'tr' (English needs no dict since it's the default).
+// Static UI labels. The HTML is authored in English; applyI18n swaps in the
+// active language. BOTH languages carry a dict so switching is reversible — a
+// server config of "en" must undo any Turkish applied before /stats resolved.
 const I18N = {
+    en: {
+        sys: '// SYSTEM', modules: '// MODULES', workshop: '// WORKSHOP', log: '// EVENT LOG',
+        mem: 'MEMORY', core: 'CORE', voice: 'VOICE', send: 'SEND',
+        start: 'Press Ctrl+Space to start', ph: 'Message E.V.…',
+    },
     tr: {
         sys: '// SİSTEM', modules: '// MODÜLLER', workshop: '// ATÖLYE', log: '// OLAY GÜNLÜĞÜ',
-        mem: 'BELLEK', wind: 'RÜZGÂR', core: 'ÇEKİRDEK', voice: 'SES', send: 'GÖNDER',
+        mem: 'BELLEK', core: 'ÇEKİRDEK', voice: 'SES', send: 'GÖNDER',
         start: 'Başlamak için Ctrl+Space', ph: "E.V.'ye yaz…",
     },
 };
-let i18nApplied = false;
+let lastI18nLang = null;
+let _seedWorkshop = null;  // assigned by the workshop IIFE; re-seed on language change
+let _startupLogged = false;  // log "core initialized" once, after /stats resolves the language
 function applyI18n() {
     document.documentElement.lang = appLang;
-    const d = I18N[appLang];
-    if (!d) return;  // English: leave the HTML as authored
+    const d = I18N[appLang] || I18N.en;
+    lastI18nLang = appLang;
     document.querySelectorAll('[data-i18n]').forEach(el => {
         const k = el.getAttribute('data-i18n'); if (d[k]) el.textContent = d[k];
     });
@@ -430,7 +438,11 @@ async function pollStats() {
     try {
         const s = await (await fetch('/stats')).json();
         if (s.language && !_langOverride) appLang = s.language;
-        if (!i18nApplied) { applyI18n(); i18nApplied = true; }
+        if (appLang !== lastI18nLang) {  // language resolved/changed → re-render UI text
+            applyI18n();
+            if (_seedWorkshop) _seedWorkshop();  // regenerate flavor lines in the right language
+        }
+        if (!_startupLogged) { _startupLogged = true; logSys(T('started')); }
         setBar('cpu', s.cpu); setBar('ram', s.ram); setBar('disk', s.disk);
         setText('s-ram', s.ram_used_gb + '/' + s.ram_total_gb + ' GB');
         setText('s-disk', s.disk_free_gb + ' GB');
@@ -662,7 +674,8 @@ const hhmm = () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', min
         while (box.children.length > 30) box.removeChild(box.firstChild);
         box.scrollTop = box.scrollHeight;
     }
-    for (let i = 0; i < 6; i++) append();
+    _seedWorkshop = function () { box.innerHTML = ''; for (let i = 0; i < 6; i++) append(); };
+    _seedWorkshop();
     setInterval(append, 3500);
 })();
 
@@ -726,5 +739,6 @@ setTimeout(() => { maybeThink(); setInterval(maybeThink, 45000); }, 12000);
 })();
 
 applyI18n();  // apply immediately for ?lang override; pollStats re-applies for server config
-logSys(T('started'));
+// "core initialized" is logged from pollStats once /stats resolves the language,
+// so it isn't printed in the wrong language before the server config is known.
 connect();
