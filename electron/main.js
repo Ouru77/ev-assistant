@@ -1,11 +1,23 @@
 const { app, BrowserWindow, globalShortcut, ipcMain, Tray, Menu, screen } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { spawn } = require('child_process');
 const http = require('http');
 
 const PROJECT = path.join(__dirname, '..');
 const PY = path.join(PROJECT, '.venv', 'Scripts', 'python.exe');
 const SERVER_URL = 'http://localhost:8340';
+
+// Optional cache redirects (off the system drive). Read from config.json so this
+// isn't hardcoded to one machine's A: drive — omit the keys and the defaults win.
+function loadConfig() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(PROJECT, 'config.json'), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+const CONFIG = loadConfig();
 
 let win = null;
 let tray = null;
@@ -21,12 +33,12 @@ function ping(url) {
 
 async function ensureServer() {
   if (await ping(SERVER_URL)) return; // already running
+  const cacheEnv = {};
+  if (CONFIG.ollama_models_path) cacheEnv.OLLAMA_MODELS = CONFIG.ollama_models_path;
+  if (CONFIG.playwright_browsers_path) cacheEnv.PLAYWRIGHT_BROWSERS_PATH = CONFIG.playwright_browsers_path;
   serverProc = spawn(PY, ['server.py'], {
     cwd: PROJECT,
-    env: Object.assign({}, process.env, {
-      OLLAMA_MODELS: 'A:\\AI\\ollama\\models',
-      PLAYWRIGHT_BROWSERS_PATH: 'A:\\AI\\ms-playwright',
-    }),
+    env: Object.assign({}, process.env, cacheEnv),
     windowsHide: true,
   });
   serverProc.stdout.on('data', (d) => process.stdout.write('[server] ' + d));
@@ -59,9 +71,9 @@ function createWindow() {
       autoplayPolicy: 'no-user-gesture-required',
     },
   });
-  // Allow microphone (local personal app).
+  // Allow only what the HUD needs (microphone) — deny camera, geolocation, etc.
   win.webContents.session.setPermissionRequestHandler((wc, permission, callback) => {
-    callback(true);
+    callback(permission === 'media');
   });
   win.setAlwaysOnTop(true, 'screen-saver');
   win.loadURL(SERVER_URL + '/?hud=1');

@@ -89,16 +89,16 @@ _POWER = {
 
 
 def open_app(name: str) -> str:
-    """Launch an app by spoken name. Returns a short Turkish status line."""
+    """Launch a *known* app by spoken name. Returns a short status line."""
     key = (name or "").strip().lower()
     target = APPS.get(key)
+    if target is None:
+        # Only launch apps from the known APPS map. Never hand an arbitrary string
+        # to `start` / os.startfile — that would resolve file paths, URI protocols
+        # or executables an injected [ACTION:APP] tag could smuggle in.
+        return _L(f"{name} tanıdığım uygulamalar arasında yok, açamıyorum.",
+                  f"{name} isn't one of my known apps, so I can't open it.")
     try:
-        if target is None:
-            # Unknown → let Windows try to resolve it (PATH / registered app).
-            os.startfile(key) if os.path.exists(key) else subprocess.Popen(
-                ["cmd", "/c", "start", "", key], shell=False
-            )
-            return _L(f"{name} açılıyor.", f"Opening {name}.")
         if target.endswith(":") or "://" in target:  # URI (ms-settings: etc.)
             os.startfile(target)
         else:

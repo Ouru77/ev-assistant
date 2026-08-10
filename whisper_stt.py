@@ -1,6 +1,7 @@
 """
 E.V. — Local Speech-to-Text via faster-whisper.
-Turkish, runs on CPU, fully offline and free. Models are cached on the A: drive.
+Turkish, runs on CPU, fully offline and free. Models are cached in `whisper_dir`
+from config (falls back to faster-whisper's default cache when unset).
 """
 import io
 

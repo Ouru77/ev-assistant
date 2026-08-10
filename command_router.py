@@ -48,7 +48,9 @@ _MEDIA_RULES = [
 _POWER_RULES = [
     (r"\b(kapatmayı iptal|iptal et|vazgeç kapat|kapatma)", "iptal"),
     (r"\b(bilgisayarı|pc('?y[ıi])?|sistemi|makineyi|makinayı) (kapat|kapatır)", "kapat"),
-    (r"\b(yeniden başlat|tekrar başlat|restart|resetle)", "yeniden başlat"),
+    # Restart needs an explicit PC context — otherwise "spotify'ı yeniden başlat"
+    # would reboot the machine instead of the app.
+    (r"\b(bilgisayar|pc|sistem|makine|makina)\w*.{0,8}(yeniden başlat|tekrar başlat|resetle|restart)", "yeniden başlat"),
     (r"\b(uyku(ya)?( moduna)?( al)?|uyut|uykuya geç)", "uyku"),
     (r"\b(ekranı kilitle|bilgisayarı kilitle|kilitle)", "kilitle"),
 ]
@@ -78,12 +80,16 @@ _MEDIA_RULES_EN = [
     (r"\b(volume down|turn (it|the volume) down|quieter|lower the volume|decrease (the )?volume)\b", "volume_down"),
     (r"\b(next|skip)\b.{0,10}\b(song|track|tune)|\bskip( this)?\b", "next"),
     (r"\b(previous|prev|last|go back)\b.{0,10}\b(song|track|tune)|\bgo back\b", "prev"),
-    (r"\b(pause|resume|play|stop)\b", "play_pause"),
+    # pause/resume are almost always media; bare play/stop are not ("play a game"),
+    # so those need a music/playback context to fire.
+    (r"\b(pause|resume)\b|\b(play|stop|start)\s+(the\s+)?(music|song|track|playback|it)\b|\b(music|song|track|playback)\b.{0,12}\b(play|stop|pause|resume)\b", "play_pause"),
 ]
 _POWER_RULES_EN = [
     (r"\bcancel (the )?(shutdown|shut down)\b", "iptal"),
     (r"\b(shut ?down|turn off)\b.{0,14}\b(computer|pc|system|machine)|\bshut ?down\b", "kapat"),
-    (r"\b(restart|reboot|reset)\b", "yeniden başlat"),
+    # "restart spotify" must not reboot the PC — restart/reset need a PC context.
+    # (reboot on its own is unambiguous, so it stays bare.)
+    (r"\b(restart|reset)\b.{0,14}\b(computer|pc|system|machine)|\b(computer|pc|system|machine)\b.{0,14}\b(restart|reboot|reset)\b|\breboot\b", "yeniden başlat"),
     (r"\b(sleep|suspend|hibernate)\b", "uyku"),
     (r"\block( the)? (screen|computer|pc)|\block it\b|\block\b", "kilitle"),
 ]
@@ -181,7 +187,9 @@ def _route_en(t: str):
     if re.search(_BYE_EN, t):
         return {"type": "SLEEP", "payload": ""}
 
-    if re.search(_FORGET_TRIGGER_EN, t):
+    # "don't forget X" is a REMEMBER, not a FORGET — guard the forget trigger so
+    # the "forget" inside "don't forget" doesn't try to delete a memory.
+    if re.search(_FORGET_TRIGGER_EN, t) and not re.search(r"don'?t\s+forget", t):
         if re.search(r"\b(everything|all|it all)\b", t):
             return {"type": "FORGET", "payload": "hepsi"}
         after = re.sub(r".*?\b(forget|erase|delete this)\b", "", t).strip(" :,.")

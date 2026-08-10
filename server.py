@@ -536,11 +536,15 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
 
     # If a destructive action is awaiting confirmation, read this reply as yes/no.
     if session_id in pending_actions:
-        if _matches(user_text, _YES):
+        yes = _matches(user_text, _YES)
+        no = _matches(user_text, _NO)
+        # Only a clean, unambiguous yes runs the action. Anything mixed
+        # ("tamam boşver") or a plain no cancels — never guess toward destruction.
+        if yes and not no:
             action = pending_actions.pop(session_id)
             await deliver_action(session_id, action, ws)
             return
-        if _matches(user_text, _NO):
+        if no or yes:  # a no, or an ambiguous yes+no → cancel safely
             pending_actions.pop(session_id, None)
             await _speak_response(session_id, S("canceled"), ws)
             return
@@ -551,7 +555,9 @@ async def process_message(session_id: str, user_text: str, ws: WebSocket):
     is_greeting = any(w in lower_text for w in
                       ("selam", "aktif", "activate", "hello", "hi ", "hey", "merhaba"))
     if is_greeting:
-        refresh_data()
+        # refresh_data does blocking HTTP (weather); run it off the event loop so
+        # one greeting doesn't freeze every other request for several seconds.
+        await asyncio.to_thread(refresh_data)
 
     conversations[session_id].append({"role": "user", "content": user_text})
 
@@ -701,8 +707,26 @@ async def deliver_action(session_id: str, action: dict, ws: WebSocket):
     })
 
 
+# The HUD is always served from this origin (Electron loads http://localhost:8340,
+# a browser tab uses localhost/127.0.0.1). Any other Origin on the WS handshake is
+# a foreign page trying to drive the assistant — reject it.
+ALLOWED_WS_ORIGINS = {
+    "http://localhost:8340",
+    "http://127.0.0.1:8340",
+}
+
+
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    # Browsers always send Origin on a WS handshake; a malicious site's Origin
+    # won't be in the allowlist, so it can't connect and fire commands (incl. the
+    # confirm-bypass). Native clients (test scripts) send no Origin and are allowed.
+    origin = ws.headers.get("origin")
+    if origin is not None and origin not in ALLOWED_WS_ORIGINS:
+        print(f"[E.V.] Rejected WS handshake from origin: {origin}", flush=True)
+        await ws.close(code=1008)  # policy violation
+        return
+
     await ws.accept()
     session_id = str(id(ws))
     clients.add(ws)

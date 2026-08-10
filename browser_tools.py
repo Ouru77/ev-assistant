@@ -5,7 +5,7 @@ Web search via DuckDuckGo Lite, page visits via Playwright, URL opening.
 
 import re
 import webbrowser
-from urllib.parse import unquote, parse_qs, urlparse
+from urllib.parse import quote, unquote, parse_qs, urlparse
 import httpx
 from playwright.async_api import async_playwright
 
@@ -28,12 +28,13 @@ async def _get_browser():
 
 
 async def search_and_read(query: str) -> dict:
-    """Search DuckDuckGo in visible browser, click first result, read the page."""
+    """Search DuckDuckGo (headless), click the first result, read the page."""
     ctx = await _get_browser()
     page = await ctx.new_page()
     try:
-        # DuckDuckGo search (no cookie banner, no reCAPTCHA)
-        search_url = f"https://duckduckgo.com/?q={query}"
+        # DuckDuckGo search (no cookie banner, no reCAPTCHA). Encode the query so
+        # spaces / & / # / Turkish characters don't corrupt the URL.
+        search_url = f"https://duckduckgo.com/?q={quote(query)}"
         await page.goto(search_url, timeout=15000)
         await page.wait_for_timeout(1500)
 
@@ -64,7 +65,7 @@ async def search_and_read(query: str) -> dict:
     except Exception as e:
         return {"error": str(e), "url": query}
     finally:
-        pass
+        await page.close()
 
 
 async def visit(url: str, max_chars: int = 5000) -> dict:
@@ -94,7 +95,7 @@ async def visit(url: str, max_chars: int = 5000) -> dict:
 
 
 async def fetch_news() -> str:
-    """Fetch current world news from worldmonitor.app in visible browser."""
+    """Fetch current world news from worldmonitor.app (headless)."""
     ctx = await _get_browser()
     page = await ctx.new_page()
     try:
@@ -107,7 +108,7 @@ async def fetch_news() -> str:
     except Exception as e:
         return f"Couldn't load the news: {e}"
     finally:
-        pass  # Keep page open so user can see it
+        await page.close()
 
 
 async def youtube_open(query: str) -> dict:
