@@ -32,14 +32,40 @@ import cases   # noqa: E402
 
 
 async def _grade_one(phrase: str, expected):
-    """Run one prompt through the real model path; return (got, elapsed, chars)."""
-    messages = [{"role": "user", "content": phrase}]
+    """Run one prompt and grade the tag. Returns (got, elapsed, gen_tok_s).
+
+    For Ollama we call /api/chat directly (mirroring server.llm_chat's ollama path)
+    so we can read Ollama's own eval_count/eval_duration and report *pure generation*
+    tok/s — not a wall-clock estimate skewed by the large system prompt. Grading still
+    uses the real system prompt + extract_action, so behavior matches the app.
+    """
     t0 = time.perf_counter()
-    text = await server.llm_chat(server.get_system_prompt(), messages, max_tokens=200)
+    gen_tok_s = 0.0
+    if server.LLM_PROVIDER == "ollama":
+        payload = {
+            "model": server.OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": server.get_system_prompt()},
+                {"role": "user", "content": phrase},
+            ],
+            "stream": False, "keep_alive": "30m",
+            # temperature=0 (greedy) for a REPRODUCIBLE benchmark. The app itself
+            # uses 0.7 for conversation; here we want a stable, comparable score.
+            "options": {"num_predict": 200, "temperature": 0.0, "num_ctx": server.NUM_CTX},
+        }
+        resp = await server.http.post(f"{server.OLLAMA_URL}/api/chat", json=payload)
+        resp.raise_for_status()
+        j = resp.json()
+        text = j["message"]["content"]
+        ec, ed = j.get("eval_count") or 0, j.get("eval_duration") or 0  # ed in ns
+        gen_tok_s = ec / (ed / 1e9) if ed else 0.0
+    else:
+        text = await server.llm_chat(server.get_system_prompt(),
+                                     [{"role": "user", "content": phrase}], max_tokens=200)
     elapsed = time.perf_counter() - t0
     _, action = server.extract_action(text)
     got = action["type"] if action else None
-    return got, elapsed, len(text)
+    return got, elapsed, gen_tok_s
 
 
 async def main():
@@ -55,18 +81,19 @@ async def main():
     per_cat = {}          # category -> [correct, total]
     failures = []
     total_time = 0.0
-    total_chars = 0
+    tok_s_samples = []
 
     for i, (phrase, expected) in enumerate(dataset, 1):
         cat = expected or "NONE"
         try:
-            got, elapsed, chars = await _grade_one(phrase, expected)
+            got, elapsed, gen_tok_s = await _grade_one(phrase, expected)
         except Exception as e:
             print(f"  [{i:2}] ERROR calling model: {str(e)[:120]}")
             print("  Is Ollama running and the model pulled? Aborting.")
             return
         total_time += elapsed
-        total_chars += chars
+        if gen_tok_s > 0:
+            tok_s_samples.append(gen_tok_s)
         ok = (got == expected)
         c = per_cat.setdefault(cat, [0, 0])
         c[1] += 1
@@ -81,8 +108,8 @@ async def main():
     correct = sum(v[0] for v in per_cat.values())
     total = sum(v[1] for v in per_cat.values())
     acc = 100.0 * correct / total if total else 0.0
-    approx_toks = total_chars / 4.0
-    tok_s = approx_toks / total_time if total_time else 0.0
+    gen_tok_s = sum(tok_s_samples) / len(tok_s_samples) if tok_s_samples else 0.0
+    avg_latency = total_time / total if total else 0.0
 
     print("-" * 64)
     print("  By category:")
@@ -97,11 +124,12 @@ async def main():
 
     print("-" * 64)
     print(f"  ACCURACY : {correct}/{total}  ({acc:.1f}%)")
-    print(f"  SPEED    : ~{tok_s:.0f} tok/s (wall-clock, approx)")
+    print(f"  GEN SPEED: ~{gen_tok_s:.0f} tok/s (Ollama eval metrics, generation only)")
+    print(f"  LATENCY  : ~{avg_latency:.1f} s per query (end-to-end, incl. prompt)")
     print("-" * 64)
     # Ready-to-paste README table row.
     print("  README row:")
-    print(f"  | `{model}` | {acc:.0f}% | ~{tok_s:.0f} | _fill VRAM_ |")
+    print(f"  | `{model}` | {acc:.0f}% | ~{gen_tok_s:.0f} tok/s | _fill VRAM_ |")
     print("=" * 64)
 
 
