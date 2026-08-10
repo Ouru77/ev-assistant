@@ -7,6 +7,10 @@ memory.json
 venv/
 __pycache__/
 *.pyc
+.pytest_cache/
+
+# Atomic-write temp files (e.g. memory.json.tmp)
+*.tmp
 
 # Node / Electron
 node_modules/

@@ -1,22 +1,30 @@
 # E.V. — Python dependencies
 # Install:  pip install -r requirements.txt
 #           playwright install chromium
+#
+# Version ranges are pinned with an upper bound (next major) so a stray
+# `pip install` can't silently pull a breaking release. Bump the caps
+# deliberately when you upgrade and re-test.
 
 # Web server + WebSocket
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-websockets>=13.0
-httpx>=0.27.0
+fastapi>=0.115.0,<1.0
+uvicorn[standard]>=0.32.0,<1.0
+websockets>=13.0,<18.0
+httpx>=0.27.0,<1.0
 
 # Local speech-to-text (offline). Pulls in PyAV for audio decoding.
-faster-whisper>=1.0.0
+faster-whisper>=1.0.0,<2.0
 
 # Optional Claude brain (only needed if llm_provider = "anthropic")
-anthropic>=0.39.0
+anthropic>=0.39.0,<1.0
 
 # Browser control + screen capture
-playwright>=1.40.0
-Pillow>=10.0.0
+playwright>=1.40.0,<2.0
+Pillow>=10.0.0,<12.0
 
 # System stats for the dashboard (/stats)
-psutil>=5.9.0
+psutil>=5.9.0,<8.0
+
+# --- Dev only (tests) -------------------------------------------------------
+# pip install pytest
+# pytest>=8.0,<9.0
