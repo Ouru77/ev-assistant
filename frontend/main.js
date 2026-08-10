@@ -444,9 +444,10 @@ async function pollStats() {
         if (s.weather) {
             setText('w-temp', s.weather.temp + '°');
             setText('w-desc', s.weather.description);
-            setText('s-wind', s.weather.wind_kmh + ' km/s');
+            setText('w-wind', s.weather.wind_kmh + (appLang === 'en' ? ' km/h' : ' km/s'));
         } else {
-            setText('w-desc', 'hava yok');
+            setText('w-desc', appLang === 'en' ? 'no weather' : 'hava yok');
+            setText('w-wind', '—');
         }
     } catch (e) {}
 }

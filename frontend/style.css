@@ -112,6 +112,7 @@ body.dashboard .panel::before {
 .topweather { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 1px; }
 #w-temp { font-size: 17px; font-weight: 700; color: var(--blue); }
 #w-desc { color: var(--text); }
+#w-wind { color: var(--dim); }
 #w-city { color: var(--dim); }
 
 /* system stats */
